@@ -1,7 +1,14 @@
 #include "ndnrtc-wrapper.hpp"
 
+#include "c-wrapper.hpp"
+
 #include <map>
 #include <string>
+#include <thread>
+
+#include <ndn-cxx/util/logger.hpp>
+
+NDN_LOG_INIT(NdnRtcWrapper);
 
 std::map<std::string, std::string>
 getParams(JNIEnv* env, jobject jParams)
@@ -43,11 +50,21 @@ getParams(JNIEnv* env, jobject jParams)
   return params;
 }
 
+void
+logme(const char* message)
+{
+  NDN_LOG_INFO(message);
+}
+
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv* env, jclass, jobject jParams)
 {
   auto params = getParams(env, jParams);
 
-  // set/update HOME environment variable
-  ::setenv("HOME", params["homePath"].c_str(), true);
+  // // set/update HOME environment variable
+  // ::setenv("HOME", params["homePath"].c_str(), true);
+
+  // std::thread([=] {
+  //     ndnrtc_init("localhost", params.find("homePath")->second.c_str(), "/foobar", "42", &logme);
+  //   });
 }
