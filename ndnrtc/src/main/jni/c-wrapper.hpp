@@ -24,7 +24,7 @@ extern "C" {
 	// creates KeyChain
 	//		optional: local key storage
 	// - runs everything on internal thread
-	bool ndnrtc_init(const char* hostname, const char* storagePath,
+	bool ndnrtc_init2(const char* hostname, const char* storagePath,
 		const char* signingIdentity, const char * instanceId, LibLog libLog);
 
 	// deinitializes library (removes connection and frees objects)
