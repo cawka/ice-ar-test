@@ -11,7 +11,7 @@ import java.util.Map;
  */
 public class NdnRtcWrapper {
   static {
-    System.loadLibrary("ndnrtc-wrapper");
+    System.loadLibrary("ice-ar-wrapper");
   }
 
   /**
