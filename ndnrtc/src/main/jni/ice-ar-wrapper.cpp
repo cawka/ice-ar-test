@@ -1,4 +1,7 @@
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+
 #include "ice-ar-wrapper.hpp"
+#include "mobile-terminal.hpp"
 
 #include <map>
 #include <string>
@@ -52,29 +55,53 @@ getParams(JNIEnv* env, jobject jParams)
   return params;
 }
 
-namespace foobar {
+namespace icear {
 
 static std::thread g_thread;
+static std::mutex g_mutex;
+static std::unique_ptr<ndn::autodiscovery::AutoDiscovery> g_runner;
 
-} // namespace foobar
+} // namespace icear
 
 
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv* env, jclass, jobject jParams)
 {
+  std::lock_guard<std::mutex> lk(icear::g_mutex);
+  if (icear::g_runner.get() != nullptr) {
+    // prevent any double starts
+    return;
+  }
+
   auto params = getParams(env, jParams);
   // set/update HOME environment variable
   ::setenv("HOME", params["homePath"].c_str(), true);
-  ::setenv("NDN_LOG", "*=ALL", true);
-  NDN_LOG_INFO("Will process with app path: " << params.find("homePath")->second.c_str());
+  if (params.find("log") != params.end()) {
+    ::setenv("NDN_LOG", params["log"].c_str(), true);
+  }
+  else {
+    ::setenv("NDN_LOG", "*=ALL", true);
+  }
 
-  foobar::g_thread = std::thread([params] {
+  NDN_LOG_DEBUG("Will process with app path: " << params.find("homePath")->second.c_str());
+
+  icear::g_thread = std::thread([params] {
       try {
-        ndn::security::v2::KeyChain keyChain;
-        NDN_LOG_INFO("Created keychain object with: " << keyChain.getPib().getPibLocator() << ", " << keyChain.getTpm().getTpmLocator());
+        {
+          std::lock_guard<std::mutex> lk(icear::g_mutex);
+          if (icear::g_runner.get() != nullptr) {
+            // now really prevent double starts
+            return;
+          }
+          icear::g_runner = std::make_unique<ndn::autodiscovery::AutoDiscovery>();
+        }
 
-        auto id = keyChain.createIdentity("/foo/bar");
-        NDN_LOG_INFO("Identity created " << id.getName());
+        icear::g_runner->doStart();
+
+        {
+          std::lock_guard<std::mutex> lk(icear::g_mutex);
+          icear::g_runner.reset();
+        }
       } catch (const std::exception& e) {
         NDN_LOG_ERROR(e.what());
       }
