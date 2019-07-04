@@ -22,6 +22,9 @@ public:
   doStart();
 
   void
+  doStop();
+
+  void
   registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& dataset);
 
   void
@@ -53,8 +56,8 @@ public:
   std::string errorInfo = "";
 
 private:
-  Face m_face;
   KeyChain m_keyChain;
+  Face m_face;
   nfd::Controller m_controller;
   Scheduler m_scheduler;
   std::unique_ptr<LocationClientTool> m_ndncertTool;

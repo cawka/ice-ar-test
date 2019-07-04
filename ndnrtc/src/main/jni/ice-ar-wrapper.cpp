@@ -65,7 +65,7 @@ static std::unique_ptr<ndn::ndncert::MobileTerminal> g_runner;
 
 
 JNIEXPORT void JNICALL
-Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv* env, jclass, jobject jParams)
+Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jParams)
 {
   auto params = getParams(env, jParams);
   // set/update HOME environment variable
@@ -73,6 +73,9 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv* env, jclass, jobject jPa
 
   // set NDN_CLIENT_TRANSPORT to ensure connection TCP socket (unix doesn't work on Android)
   ::setenv("NDN_CLIENT_TRANSPORT", "tcp4://127.0.0.1:6363", true);
+
+  ::setenv("NDN_CLIENT_PIB", "pib-memory", true);
+  ::setenv("NDN_CLIENT_TPM", "tpm-memory", true);
 
   if (params.find("log") != params.end()) {
     ndn::util::Logging::setLevel(params["log"]);
@@ -105,12 +108,31 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv* env, jclass, jobject jPa
         NDN_LOG_TRACE("Initiating NDNCERT");
         icear::g_runner->doStart();
 
+        NDN_LOG_TRACE("End of NDNCERT");
+
         {
           std::lock_guard<std::mutex> lk(icear::g_mutex);
           icear::g_runner.reset();
         }
+
+        NDN_LOG_TRACE("Terminated NDNCERT");
       } catch (const std::exception& e) {
         NDN_LOG_ERROR(e.what());
       }
     });
+}
+
+JNIEXPORT void JNICALL
+Java_net_named_1data_ice_1ar_NdnRtcWrapper_stop(JNIEnv*, jclass)
+{
+  {
+    std::lock_guard<std::mutex> lk(icear::g_mutex);
+    if (icear::g_runner.get() == nullptr) {
+      return;
+    }
+    icear::g_runner->doStop();
+  }
+  NDN_LOG_TRACE("Requested stop, waiting for thread join");
+  icear::g_thread.join();
+  NDN_LOG_TRACE("Thread joined");
 }

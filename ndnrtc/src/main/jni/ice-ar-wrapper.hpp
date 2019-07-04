@@ -11,12 +11,20 @@ extern "C" {
 #endif
 
 /*
- * Class:     net_named_data_ice_1ar_service_NfdService
- * Method:    test
+ * Class:     net_named_data_ice_1ar_NdnRtcWrapper
+ * Method:    start
  * Signature: (Ljava/lang/Map;)V
  */
 JNIEXPORT void JNICALL
-Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv*, jclass, jobject);
+Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv*, jclass, jobject);
+
+/*
+ * Class:     net_named_data_ice_1ar_NdnRtcWrapper
+ * Method:    stop
+ * Signature: (Ljava/lang/Map;)V
+ */
+JNIEXPORT void JNICALL
+Java_net_named_1data_ice_1ar_NdnRtcWrapper_stop(JNIEnv*, jclass);
 
 #ifdef __cplusplus
 }

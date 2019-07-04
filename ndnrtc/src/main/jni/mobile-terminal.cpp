@@ -28,7 +28,8 @@ static const time::milliseconds HUB_DISCOVERY_ROUTE_EXPIRATION = 160_s;
 static const time::milliseconds HUB_DISCOVERY_INTEREST_LIFETIME = 2_s;
 
 MobileTerminal::MobileTerminal()
-  : m_face(nullptr, m_keyChain)
+  : m_keyChain("pib-memory", "tpm-memory")
+  , m_face(nullptr, m_keyChain)
   , m_controller(m_face, m_keyChain)
   , m_scheduler(m_face.getIoService())
 {
@@ -56,6 +57,12 @@ MobileTerminal::doStart()
     });
 
   m_face.processEvents();
+}
+
+void
+MobileTerminal::doStop()
+{
+  m_face.shutdown();
 }
 
 void
