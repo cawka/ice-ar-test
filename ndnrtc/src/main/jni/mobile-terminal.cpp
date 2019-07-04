@@ -9,12 +9,15 @@
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include <ndn-cxx/util/random.hpp>
 
-#include <iostream>
 #include <boost/lexical_cast.hpp>
 #include <boost/exception/diagnostic_information.hpp>
 
+#include <ndn-cxx/util/logger.hpp>
+
 namespace ndn {
-namespace autodiscovery {
+namespace ndncert {
+
+NDN_LOG_INIT(ndncert.MobileTerminal);
 
 using nfd::ControlParameters;
 using nfd::ControlResponse;
@@ -24,7 +27,7 @@ static const uint64_t HUB_DISCOVERY_ROUTE_COST(1);
 static const time::milliseconds HUB_DISCOVERY_ROUTE_EXPIRATION = 160_s;
 static const time::milliseconds HUB_DISCOVERY_INTEREST_LIFETIME = 2_s;
 
-AutoDiscovery::AutoDiscovery()
+MobileTerminal::MobileTerminal()
   : m_face(nullptr, m_keyChain)
   , m_controller(m_face, m_keyChain)
   , m_scheduler(m_face.getIoService())
@@ -32,7 +35,7 @@ AutoDiscovery::AutoDiscovery()
 }
 
 void
-AutoDiscovery::doStart()
+MobileTerminal::doStart()
 {
   m_controller.start<nfd::FaceUpdateCommand>(
     nfd::ControlParameters()
@@ -43,7 +46,7 @@ AutoDiscovery::doStart()
 
       m_controller.fetch<nfd::FaceQueryDataset>(
         filter,
-        bind(&AutoDiscovery::registerHubDiscoveryPrefix, this, _1),
+        bind(&MobileTerminal::registerHubDiscoveryPrefix, this, _1),
         [this] (uint32_t code, const std::string& reason) {
           this->fail("Error " + to_string(code) + " when querying multi-access faces: " + reason);
         });
@@ -56,7 +59,7 @@ AutoDiscovery::doStart()
 }
 
 void
-AutoDiscovery::registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& dataset)
+MobileTerminal::registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& dataset)
 {
   if (dataset.empty()) {
     this->fail("No multi-access faces available");
@@ -81,9 +84,9 @@ AutoDiscovery::registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& da
         afterReg();
       },
       [this, faceStatus] (const ControlResponse& resp) {
-        std::cerr << "Error " << resp.getCode() << " when registering hub discovery prefix "
-                  << "for face " << faceStatus.getFaceId() << " (" << faceStatus.getRemoteUri()
-                  << "): " << resp.getText() << std::endl;
+        NDN_LOG_ERROR("Error " << resp.getCode() << " when registering hub discovery prefix "
+                      << "for face " << faceStatus.getFaceId() << " (" << faceStatus.getRemoteUri()
+                      << "): " << resp.getText());
         ++m_nRegFailure;
         afterReg();
       });
@@ -91,13 +94,13 @@ AutoDiscovery::registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& da
 }
 
 void
-AutoDiscovery::afterReg()
+MobileTerminal::afterReg()
 {
   if (m_nRegSuccess + m_nRegFailure < m_nRegs) {
     return; // continue waiting
   }
   if (m_nRegSuccess > 0) {
-    std::cerr << "Registered to " << m_nRegSuccess << " faces" << std::endl;
+    NDN_LOG_TRACE("Registered to " << m_nRegSuccess << " faces");
     this->setStrategy();
   }
   else {
@@ -106,7 +109,7 @@ AutoDiscovery::afterReg()
 }
 
 void
-AutoDiscovery::setStrategy()
+MobileTerminal::setStrategy()
 {
   ControlParameters parameters;
   parameters.setName(HUB_DISCOVERY_PREFIX)
@@ -122,14 +125,14 @@ AutoDiscovery::setStrategy()
 }
 
 void
-AutoDiscovery::requestHubData(size_t retriesLeft)
+MobileTerminal::requestHubData(size_t retriesLeft)
 {
   Interest interest(HUB_DISCOVERY_PREFIX);
   interest.setInterestLifetime(HUB_DISCOVERY_INTEREST_LIFETIME);
   interest.setMustBeFresh(true);
   interest.setCanBePrefix(true);
 
-  std::cout << "Sending interest via multicast... " << interest << std::endl;
+  NDN_LOG_INFO("Discover localhop CA via " << interest);
 
   m_face.expressInterest(interest,
     [this] (const Interest&, const Data& data) {
@@ -138,7 +141,7 @@ AutoDiscovery::requestHubData(size_t retriesLeft)
       content.parse();
       ndn::security::v2::Certificate cert(data.getContent().blockFromValue());
 
-      std::cout << "\nTrust Anchor certificate retrieved...\n" << cert << std::endl;
+      NDN_LOG_INFO("Discovered CA:\n" << cert);
 
       // if (ndn::security::verifySignature(data, cert)){
       //   std::cout << "Device certificate verified by trust anchor!!!\n";
@@ -150,10 +153,8 @@ AutoDiscovery::requestHubData(size_t retriesLeft)
         faceId = tag->get();
       }
       else {
-        std::cerr << "Incoming data missing IncomingFaceIdTag" << std::endl;
+        NDN_LOG_ERROR("Incoming data missing IncomingFaceIdTag");
       }
-
-      std::cout << "Got data from FaceId " << faceId << std::endl;
 
       // Get CA namespace
       Name caName = cert.getName().getPrefix(-4);
@@ -162,13 +163,11 @@ AutoDiscovery::requestHubData(size_t retriesLeft)
 
       // Get certificate to be used for signing data
       registerPrefixAndRunNdncert(caName, faceId);
-
-      std::cerr << "END OF NDNCERT" << std::endl;
     },
     [this, retriesLeft] (const Interest&, const lp::Nack& nack) {
-      std::cerr << "Got NACK: " << nack.getReason() << std::endl;
+      NDN_LOG_DEBUG("Got NACK: " << nack.getReason());
       if (retriesLeft > 0) {
-        std::cerr << "   Retrying in 1 second..." << std::endl;
+        NDN_LOG_DEBUG("   Retrying in 1 second...");
 
         m_scheduler.schedule(1_s, [=] {
             requestHubData(retriesLeft - 1);
@@ -176,28 +175,22 @@ AutoDiscovery::requestHubData(size_t retriesLeft)
       }
     },
     [this, retriesLeft] (const Interest&) {
-      std::cerr << "Request timed out" << std::endl;
+      NDN_LOG_DEBUG("Request timed out");
       if (retriesLeft > 0) {
-        std::cerr << "   Retrying..." << std::endl;
+        NDN_LOG_DEBUG("   Retrying...");
         requestHubData(retriesLeft - 1);
       }
     });
 }
 
 void
-AutoDiscovery::fail(const std::string& msg)
+MobileTerminal::fail(const std::string& msg)
 {
-  std::cerr << "Multicast discovery failed: " << msg << std::endl;
+  NDN_LOG_ERROR("Discovery failed: " << msg);
 }
 
 void
-AutoDiscovery::succeed(const FaceUri& hubFaceUri)
-{
-  std::cerr << "Multicast discovery succeeded with " << hubFaceUri << std::endl;
-}
-
-void
-AutoDiscovery::registerPrefixAndRunNdncert(const Name& caPrefix, uint64_t faceId)
+MobileTerminal::registerPrefixAndRunNdncert(const Name& caPrefix, uint64_t faceId)
 {
   // register CA prefix
   ControlParameters parameters;
@@ -209,7 +202,8 @@ AutoDiscovery::registerPrefixAndRunNdncert(const Name& caPrefix, uint64_t faceId
   m_controller.start<nfd::RibRegisterCommand>(
     parameters,
     [this, caPrefix] (const ControlParameters&) {
-      std::cout << "\nGetting certificate from CA " << caPrefix << "\n";
+
+      NDN_LOG_INFO("Requesting certificate from CA " << caPrefix);
 
       try {
         const std::string letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890";
@@ -218,23 +212,22 @@ AutoDiscovery::registerPrefixAndRunNdncert(const Name& caPrefix, uint64_t faceId
                         [&letters] () -> char {
                           return letters[random::generateSecureWord32() % letters.size()];
                         });
-        std::cerr << "GEN IDENTITY: '" << randomUserIdentity << "'" << std::endl;
 
         BOOST_ASSERT(m_ndncertTool != nullptr);
         m_ndncertTool->start(randomUserIdentity);
       }
       catch (const std::exception& error) {
-        std::cerr << boost::diagnostic_information(error) << std::endl;
+        NDN_LOG_ERROR(boost::diagnostic_information(error));
         this->retval = -1;
         this->errorInfo = error.what();
       }
     },
     [this] (const ControlResponse& resp) {
-      std::cerr << "Error " << resp.getCode() << " when registering CA prefix. Cannot proceed";
+      NDN_LOG_ERROR("ERROR " << resp.getCode() << " when registering CA prefix. Cannot proceed");
       this->retval = -1;
       this->errorInfo = "Error when registering CA prefix. Cannot proceed";
     });
 }
 
-} // namespace autodiscovery
+} // namespace ndncert
 } // namespace ndn

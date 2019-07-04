@@ -11,12 +11,12 @@
 #include "location-client-tool.hpp"
 
 namespace ndn {
-namespace autodiscovery {
+namespace ndncert {
 
-class AutoDiscovery
+class MobileTerminal
 {
 public:
-  AutoDiscovery();
+  MobileTerminal();
 
   void
   doStart();
@@ -46,9 +46,6 @@ public:
   fail(const std::string& msg);
 
   void
-  succeed(const FaceUri& hubFaceUri);
-
-  void
   registerPrefixAndRunNdncert(const Name& caPrefix, uint64_t faceId);
 
 public:
@@ -60,14 +57,14 @@ private:
   KeyChain m_keyChain;
   nfd::Controller m_controller;
   Scheduler m_scheduler;
-  std::unique_ptr<ndncert::LocationClientTool> m_ndncertTool;
+  std::unique_ptr<LocationClientTool> m_ndncertTool;
 
   int m_nRegs = 0;
   int m_nRegSuccess = 0;
   int m_nRegFailure = 0;
 };
 
-} // namespace autodiscovery
+} // namespace ndncert
 } // namespace ndn
 
 #endif // NFD_TOOLS_NDN_AUTOCONFIG_MULTICAST_DISCOVERY_HPP

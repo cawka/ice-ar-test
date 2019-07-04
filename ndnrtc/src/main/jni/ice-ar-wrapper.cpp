@@ -59,7 +59,7 @@ namespace icear {
 
 static std::thread g_thread;
 static std::mutex g_mutex;
-static std::unique_ptr<ndn::autodiscovery::AutoDiscovery> g_runner;
+static std::unique_ptr<ndn::ndncert::MobileTerminal> g_runner;
 
 } // namespace icear
 
@@ -93,7 +93,7 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv* env, jclass, jobject jPa
             // now really prevent double starts
             return;
           }
-          icear::g_runner = std::make_unique<ndn::autodiscovery::AutoDiscovery>();
+          icear::g_runner = std::make_unique<ndn::ndncert::MobileTerminal>();
         }
 
         icear::g_runner->doStart();
