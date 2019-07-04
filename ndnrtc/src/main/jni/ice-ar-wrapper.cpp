@@ -67,23 +67,28 @@ static std::unique_ptr<ndn::ndncert::MobileTerminal> g_runner;
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv* env, jclass, jobject jParams)
 {
-  std::lock_guard<std::mutex> lk(icear::g_mutex);
-  if (icear::g_runner.get() != nullptr) {
-    // prevent any double starts
-    return;
-  }
-
   auto params = getParams(env, jParams);
   // set/update HOME environment variable
   ::setenv("HOME", params["homePath"].c_str(), true);
+
+  // set NDN_CLIENT_TRANSPORT to ensure connection TCP socket (unix doesn't work on Android)
+  ::setenv("NDN_CLIENT_TRANSPORT", "tcp4://127.0.0.1:6363", true);
+
   if (params.find("log") != params.end()) {
-    ::setenv("NDN_LOG", params["log"].c_str(), true);
+    ndn::util::Logging::setLevel(params["log"]);
   }
   else {
-    ::setenv("NDN_LOG", "*=ALL", true);
+    ndn::util::Logging::setLevel("*=ALL");
   }
 
   NDN_LOG_DEBUG("Will process with app path: " << params.find("homePath")->second.c_str());
+
+  std::lock_guard<std::mutex> lk(icear::g_mutex);
+  if (icear::g_runner.get() != nullptr) {
+    // prevent any double starts
+    NDN_LOG_TRACE("Runner already created, do nothing");
+    return;
+  }
 
   icear::g_thread = std::thread([params] {
       try {
@@ -91,11 +96,13 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_test(JNIEnv* env, jclass, jobject jPa
           std::lock_guard<std::mutex> lk(icear::g_mutex);
           if (icear::g_runner.get() != nullptr) {
             // now really prevent double starts
+            NDN_LOG_TRACE("Runner already created, do nothing");
             return;
           }
           icear::g_runner = std::make_unique<ndn::ndncert::MobileTerminal>();
         }
 
+        NDN_LOG_TRACE("Initiating NDNCERT");
         icear::g_runner->doStart();
 
         {
