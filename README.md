@@ -2,6 +2,8 @@
 
 ## Building from source
 
+**NOTE: As of July 5, 2019 build with NDK 20 is BROKEN for armeabi platform and will crash. Download and install NDK 19 from from [NDK Archives](https://developer.android.com/ndk/downloads/older_releases.html) and disregard sdkmanager instructions below.**
+
 ### Installing Android SDK and NDK
 
 - Option 1: Using Android Studio
