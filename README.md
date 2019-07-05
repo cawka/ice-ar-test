@@ -22,7 +22,7 @@ By default, on macOS, SDK will be installed into `/Users/<user-name>/Library/And
         # On macOS
         SDK=sdk-tools-darwin-4333796.zip
 
-        wget ttps://dl.google.com/android/repository/$SDK
+        wget https://dl.google.com/android/repository/$SDK
         unzip $SDK
         rm $SDK
 
