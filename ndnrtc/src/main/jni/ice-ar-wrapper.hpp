@@ -26,6 +26,12 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv*, jclass, jobject);
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_stop(JNIEnv*, jclass);
 
+JNIEXPORT void JNICALL
+Java_net_named_1data_ice_1ar_NdnRtcWrapper_attach(JNIEnv* env, jclass, jobject logcat);
+
+JNIEXPORT void JNICALL
+Java_net_named_1data_ice_1ar_NdnRtcWrapper_detach(JNIEnv* env, jclass, jobject logcat);
+
 #ifdef __cplusplus
 }
 #endif

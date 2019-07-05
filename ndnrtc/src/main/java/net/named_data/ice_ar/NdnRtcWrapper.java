@@ -18,4 +18,10 @@ public class NdnRtcWrapper {
 
   public native static void
   stop();
+
+  public native static void
+  attach(LogcatFragment logcat);
+
+  public native static void
+  detach(LogcatFragment logcat);
 }

@@ -25,7 +25,8 @@ public class LogcatFragment extends Fragment {
   private static final String TAG = LogcatFragment.class.getName();
 
   @Override
-  public void onCreate(Bundle savedInstanceState) {
+  public void onCreate(Bundle savedInstanceState)
+  {
     super.onCreate(savedInstanceState);
     setHasOptionsMenu(true);
   }
@@ -33,7 +34,8 @@ public class LogcatFragment extends Fragment {
   @Override
   public View onCreateView(LayoutInflater inflater,
                            @Nullable ViewGroup container,
-                           @Nullable Bundle savedInstanceState) {
+                           @Nullable Bundle savedInstanceState)
+  {
     @SuppressLint("InflateParams")
     View v = inflater.inflate(R.layout.fragment_logcat_output, null);
 
@@ -46,42 +48,30 @@ public class LogcatFragment extends Fragment {
   }
 
   @Override
-  public void onResume() {
+  public void onResume()
+  {
     super.onResume();
-    startLogging();
+    NdnRtcWrapper.attach(this);
+    //    startLogging();
   }
 
   @Override
-  public void onPause() {
+  public void onPause()
+  {
     super.onPause();
-    stopLogging();
+    //    stopLogging();
+    NdnRtcWrapper.detach(this);
+  }
+
+  public void
+  addMessageFromNative(String message)
+  {
+    getActivity().runOnUiThread(() -> {
+      appendLogText(message);
+    });
   }
 
   //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Starts logging by spawning a new thread to capture logs.
-   */
-  private void startLogging() {
-    // Clear output, update UI and get tag arguments
-    clearLogOutput();
-    m_tagArguments = "*:V";
-
-    new Thread(){
-      @Override
-      public void run() {
-        captureLog();
-      }
-    }.start();
-  }
-
-  /**
-   * Stops the logging by killing the process running logcat.
-   */
-  private void stopLogging() {
-    // Kill process
-    m_logProcess.destroy();
-  }
 
   /**
    * Clear log adapter and update UI.
@@ -101,37 +91,37 @@ public class LogcatFragment extends Fragment {
     m_logListView.setSelection(m_logListAdapter.getCount() - 1);
   }
 
-  /**
-   * Convenience method to capture the output from logcat.
-   */
-  private void captureLog() {
-    try {
-      // Build command for execution
-      String cmd = String.format("%s -v time %s *:S",
-          "logcat",
-          m_tagArguments);
-
-      m_logProcess = Runtime.getRuntime().exec(cmd);
-      BufferedReader in = new BufferedReader(
-          new InputStreamReader(m_logProcess.getInputStream()));
-
-      String line;
-      while ((line = in.readLine()) != null) {
-        final String message = line;
-        getActivity().runOnUiThread(new Runnable() {
-          @Override
-          public void run() {
-            appendLogText(message);
-          }
-        });
-      }
-
-      // Wait for process to join this thread
-      m_logProcess.waitFor();
-    } catch (IOException | InterruptedException e) {
-      Log.e(TAG, "captureLog(): " + e);
-    }
-  }
+//  /**
+//   * Convenience method to capture the output from logcat.
+//   */
+//  private void captureLog() {
+//    try {
+//      // Build command for execution
+//      String cmd = String.format("%s -v time %s *:S",
+//          "logcat",
+//          m_tagArguments);
+//
+//      m_logProcess = Runtime.getRuntime().exec(cmd);
+//      BufferedReader in = new BufferedReader(
+//          new InputStreamReader(m_logProcess.getInputStream()));
+//
+//      String line;
+//      while ((line = in.readLine()) != null) {
+//        final String message = line;
+//        getActivity().runOnUiThread(new Runnable() {
+//          @Override
+//          public void run() {
+//            appendLogText(message);
+//          }
+//        });
+//      }
+//
+//      // Wait for process to join this thread
+//      m_logProcess.waitFor();
+//    } catch (IOException | InterruptedException e) {
+//      Log.e(TAG, "captureLog(): " + e);
+//    }
+//  }
 
   //////////////////////////////////////////////////////////////////////////////
 
