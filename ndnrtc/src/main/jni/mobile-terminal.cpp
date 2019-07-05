@@ -23,12 +23,12 @@ using nfd::ControlParameters;
 using nfd::ControlResponse;
 
 static const Name HUB_DISCOVERY_PREFIX("/localhop/ndn-autoconf/CA");
-static const uint64_t HUB_DISCOVERY_ROUTE_COST(1);
-static const time::milliseconds HUB_DISCOVERY_ROUTE_EXPIRATION = 160_s;
+static const uint64_t ROUTE_COST(1);
+static const time::milliseconds ROUTE_EXPIRATION = 160_s;
 static const time::milliseconds HUB_DISCOVERY_INTEREST_LIFETIME = 2_s;
 
-MobileTerminal::MobileTerminal()
-  : m_keyChain("pib-memory", "tpm-memory")
+MobileTerminal::MobileTerminal(KeyChain& keyChain)
+  : m_keyChain(keyChain)
   , m_face(nullptr, m_keyChain)
   , m_controller(m_face, m_keyChain)
   , m_scheduler(m_face.getIoService())
@@ -65,6 +65,70 @@ MobileTerminal::doStop()
   m_face.shutdown();
 }
 
+void MobileTerminal::waitUntilFibEntryHasNextHop(size_t nRetriesLeft,
+                                                 const Name& prefix, uint64_t faceId,
+                                                 const std::function<void()>& continueCallback)
+{
+  NDN_LOG_TRACE("Check if FIB entry " << prefix << " exists with nexthop " << faceId << ", retries left: " << nRetriesLeft);
+  m_controller.fetch<nfd::FibDataset>(
+    [=] (const std::vector<nfd::FibEntry>& result) {
+      bool hasDesiredNextHop = false;
+      for (const auto& entry : result) {
+        if (entry.getPrefix() == prefix) { // right now, there is no better way to query for a specifci FIB entry
+          for (const auto& nexthop : entry.getNextHopRecords()) {
+            if (nexthop.getFaceId() == faceId) {
+              hasDesiredNextHop = true;
+              break;
+            }
+          }
+          break;
+        }
+      }
+      if (!hasDesiredNextHop) {
+        if (nRetriesLeft > 0) {
+          m_scheduler.schedule(1_s, [=] {
+              waitUntilFibEntryHasNextHop(nRetriesLeft - 1, prefix, faceId, continueCallback);
+            });
+        }
+      }
+      else {
+        continueCallback();
+      }
+    },
+    [=] (uint32_t code, const std::string& reason) {
+      NDN_LOG_ERROR("ERROR `" << reason << "` when checking for FIB entry for " << prefix << " prefix. Cannot proceed");
+      this->retval = -1;
+      this->errorInfo = "Error when registering " + prefix.toUri() + " prefix. Cannot proceed";
+    });
+}
+
+
+void
+MobileTerminal::registerPrefixAndEnsureFibEntry(const Name& prefix, uint64_t faceId,
+                                                const std::function<void()>& continueCallback)
+{
+  // register CA prefix
+  ControlParameters parameters;
+  parameters.setName(prefix)
+    .setFaceId(faceId)
+    .setCost(ROUTE_COST)
+    .setExpirationPeriod(ROUTE_EXPIRATION);
+
+  m_controller.start<nfd::RibRegisterCommand>(
+    parameters,
+    [=] (const ControlParameters&) {
+      m_scheduler.schedule(500_ms, [=] {
+          waitUntilFibEntryHasNextHop(5, prefix, faceId, continueCallback);
+        }); // wait up 5 seconds theen declare failure
+    },
+    [=] (const ControlResponse& resp) {
+      NDN_LOG_ERROR("ERROR `" << resp << "` when registering " << prefix << " prefix. Cannot proceed");
+      this->retval = -1;
+      this->errorInfo = "Error when registering " + prefix.toUri() + " prefix. Cannot proceed";
+    });
+}
+
+
 void
 MobileTerminal::registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& dataset)
 {
@@ -78,23 +142,8 @@ MobileTerminal::registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& d
   m_nRegFailure = 0;
 
   for (const auto& faceStatus : dataset) {
-    ControlParameters parameters;
-    parameters.setName(HUB_DISCOVERY_PREFIX)
-              .setFaceId(faceStatus.getFaceId())
-              .setCost(HUB_DISCOVERY_ROUTE_COST)
-              .setExpirationPeriod(HUB_DISCOVERY_ROUTE_EXPIRATION);
-
-    m_controller.start<nfd::RibRegisterCommand>(
-      parameters,
-      [this] (const ControlParameters&) {
+    registerPrefixAndEnsureFibEntry(HUB_DISCOVERY_PREFIX, faceStatus.getFaceId(), [this] {
         ++m_nRegSuccess;
-        afterReg();
-      },
-      [this, faceStatus] (const ControlResponse& resp) {
-        NDN_LOG_ERROR("Error " << resp.getCode() << " when registering hub discovery prefix "
-                      << "for face " << faceStatus.getFaceId() << " (" << faceStatus.getRemoteUri()
-                      << "): " << resp.getText());
-        ++m_nRegFailure;
         afterReg();
       });
   }
@@ -108,7 +157,7 @@ MobileTerminal::afterReg()
   }
   if (m_nRegSuccess > 0) {
     NDN_LOG_TRACE("Registered to " << m_nRegSuccess << " faces");
-    this->setStrategy();
+    setStrategy();
   }
   else {
     this->fail("Cannot register hub discovery prefix for any face");
@@ -124,7 +173,9 @@ MobileTerminal::setStrategy()
 
   m_controller.start<nfd::StrategyChoiceSetCommand>(
     parameters,
-    [this] (const auto&...) { requestHubData(3); },
+    [this] (const auto&...) {
+      requestHubData(3);
+    },
     [this] (const ControlResponse& resp) {
       this->fail("Error " + to_string(resp.getCode()) + " when setting multicast strategy: " +
                  resp.getText());
@@ -199,41 +250,35 @@ MobileTerminal::fail(const std::string& msg)
 void
 MobileTerminal::registerPrefixAndRunNdncert(const Name& caPrefix, uint64_t faceId)
 {
-  // register CA prefix
-  ControlParameters parameters;
-  parameters.setName(caPrefix)
-    .setFaceId(faceId)
-    .setCost(HUB_DISCOVERY_ROUTE_COST)
-    .setExpirationPeriod(HUB_DISCOVERY_ROUTE_EXPIRATION);
+  NDN_LOG_INFO("Requesting certificate from CA " << caPrefix);
 
-  m_controller.start<nfd::RibRegisterCommand>(
-    parameters,
-    [this, caPrefix] (const ControlParameters&) {
-
-      NDN_LOG_INFO("Requesting certificate from CA " << caPrefix);
-
-      try {
-        const std::string letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890";
-        std::string randomUserIdentity;
-        std::generate_n(std::back_inserter(randomUserIdentity), 10,
-                        [&letters] () -> char {
-                          return letters[random::generateSecureWord32() % letters.size()];
-                        });
-
-        BOOST_ASSERT(m_ndncertTool != nullptr);
-        m_ndncertTool->start(randomUserIdentity);
-      }
-      catch (const std::exception& error) {
-        NDN_LOG_ERROR(boost::diagnostic_information(error));
-        this->retval = -1;
-        this->errorInfo = error.what();
-      }
-    },
-    [this] (const ControlResponse& resp) {
-      NDN_LOG_ERROR("ERROR " << resp.getCode() << " when registering CA prefix. Cannot proceed");
-      this->retval = -1;
-      this->errorInfo = "Error when registering CA prefix. Cannot proceed";
+  // // register CA prefix
+  registerPrefixAndEnsureFibEntry(caPrefix, faceId, [this, faceId] {
+      registerPrefixAndEnsureFibEntry("/localhop/CA", faceId, [this] {
+          runNdncert();
+        });
     });
+}
+
+void
+MobileTerminal::runNdncert()
+{
+  try {
+    const std::string letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890";
+    std::string randomUserIdentity;
+    std::generate_n(std::back_inserter(randomUserIdentity), 10,
+                    [&letters] () -> char {
+                      return letters[random::generateSecureWord32() % letters.size()];
+                    });
+
+    BOOST_ASSERT(m_ndncertTool != nullptr);
+    m_ndncertTool->start(randomUserIdentity);
+  }
+  catch (const std::exception& error) {
+    NDN_LOG_ERROR(boost::diagnostic_information(error));
+    this->retval = -1;
+    this->errorInfo = error.what();
+  }
 }
 
 } // namespace ndncert

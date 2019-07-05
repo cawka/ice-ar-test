@@ -16,13 +16,23 @@ namespace ndncert {
 class MobileTerminal
 {
 public:
-  MobileTerminal();
+  MobileTerminal(KeyChain& keyChain);
 
   void
   doStart();
 
   void
   doStop();
+
+private:
+  void
+  waitUntilFibEntryHasNextHop(size_t nRetriesLeft,
+                              const Name& prefix, uint64_t faceId,
+                              const std::function<void()>& continueCallback);
+
+  void
+  registerPrefixAndEnsureFibEntry(const Name& prefix, uint64_t faceId,
+                                  const std::function<void()>& continueCallback);
 
   void
   registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& dataset);
@@ -51,12 +61,19 @@ public:
   void
   registerPrefixAndRunNdncert(const Name& caPrefix, uint64_t faceId);
 
+  void
+  runNdncert();
+
+  void
+  waitUntilFibEntryHasNextHop(const Name& prefix, uint64_t faceId,
+                              const std::function<void()>& continueCallback);
+
 public:
   int retval = 0;
   std::string errorInfo = "";
 
 private:
-  KeyChain m_keyChain;
+  KeyChain& m_keyChain;
   Face m_face;
   nfd::Controller m_controller;
   Scheduler m_scheduler;
