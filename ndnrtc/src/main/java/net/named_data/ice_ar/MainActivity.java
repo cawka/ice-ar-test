@@ -28,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
         File dir = getFilesDir();
         if (dir != null) {
           params.put("homePath", getFilesDir().getAbsolutePath());
-          params.put("log", "*=ALL");
+          params.put("log", "ndncert.*=ALL:ndn.Face=ALL");
         }
         NdnRtcWrapper.start(params);
       }

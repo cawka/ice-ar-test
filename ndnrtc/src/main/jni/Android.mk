@@ -10,5 +10,5 @@ LOCAL_CFLAGS := -DBOOST_LOG_DYN_LINK -DBOOST_STACKTRACE_DYN_LINK
 include $(BUILD_SHARED_LIBRARY)
 
 # Explicitly define versions of precompiled modules
-$(call import-module,../packages/ndn_cxx/0.6.6)
-$(call import-module,../packages/ndncert_guest/0.1.1)
+$(call import-module,../packages/ndn_cxx/0.6.6-1)
+$(call import-module,../packages/ndncert_guest/0.1.1-1)

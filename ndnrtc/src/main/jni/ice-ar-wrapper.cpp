@@ -7,11 +7,10 @@
 #include <string>
 #include <thread>
 
+#include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/util/exception.hpp>
 #include <ndn-cxx/util/logger.hpp>
 #include <ndn-cxx/util/logging.hpp>
-
-#include <ndn-cxx/security/key-chain.hpp>
-#include <android/log.h>
 
 #include <boost/log/attributes.hpp>
 #include <boost/log/sources/record_ostream.hpp>
@@ -23,7 +22,7 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/expressions/keyword.hpp>
 
-NDN_LOG_INIT(NdnRtcWrapper);
+NDN_LOG_INIT(ndncert.Runner);
 
 std::map<std::string, std::string>
 getParams(JNIEnv* env, jobject jParams)
@@ -74,12 +73,12 @@ static std::unique_ptr<ndn::KeyChain> g_keyChain;
 
 } // namespace icear
 
-void init();
+void init(JNIEnv* env);
 
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jParams)
 {
-  init(); // logging facilities, though not sure it gonna work
+  init(env); // logging facilities, though not sure it gonna work
 
   auto params = getParams(env, jParams);
   // set/update HOME environment variable
@@ -99,10 +98,6 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
   }
 
   NDN_LOG_DEBUG("Will process with app path: " << params.find("homePath")->second.c_str());
-
-  BOOST_LOG(ndn_cxx_getLogger()) << ::ndn::util::detail::LoggerTimestamp{}
-                                 << " TRACE: [" << ndn_cxx_getLogger().getModuleName() << "] "
-                                 << "FOO BAR";
 
   std::lock_guard<std::mutex> lk(icear::g_mutex);
   if (icear::g_runner.get() != nullptr) {
@@ -160,21 +155,55 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_stop(JNIEnv*, jclass)
   NDN_LOG_TRACE("Thread joined");
 }
 
-std::list<std::function<void(const std::string& message)>> g_callbacks;
+std::list<std::function<void(JNIEnv* env, const std::string& message)>> g_callbacks;
+
+JavaVM* g_vm;
+
+class ScopedEnv
+{
+public:
+  ScopedEnv()
+  {
+    int getEnvStat = g_vm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    if (getEnvStat == JNI_EDETACHED) {
+      if (g_vm->AttachCurrentThread(&env, NULL) != 0) {
+        NDN_THROW(std::runtime_error("Failed to attach thread"));
+      }
+    } else if (getEnvStat == JNI_OK) {
+      //
+    } else if (getEnvStat == JNI_EVERSION) {
+      NDN_THROW(std::runtime_error("GetEnv: version not supported"));
+    }
+  }
+
+  ~ScopedEnv()
+  {
+    // g_vm->DetachCurrentThread();
+  }
+
+  JNIEnv*
+  get()
+  {
+    return env;
+  }
+
+private:
+  JNIEnv* env;
+};
 
 template<class T>
 class GlobalRef
 {
 public:
   GlobalRef(JNIEnv* env, T t)
-    : m_env(env)
   {
-    m_globalRef = reinterpret_cast<T>(m_env->NewGlobalRef(t));
+    m_globalRef = reinterpret_cast<T>(env->NewGlobalRef(t));
   }
 
   ~GlobalRef()
   {
-    m_env->DeleteGlobalRef(m_globalRef);
+    ScopedEnv env;
+    env.get()->DeleteGlobalRef(m_globalRef);
   }
 
   T&
@@ -183,27 +212,25 @@ public:
   }
 
 private:
-  JNIEnv* m_env;
   T m_globalRef;
 };
 
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_attach(JNIEnv* env, jclass, jobject logcat)
 {
+  init(env);
+
   auto logcatGlobal = std::make_shared<GlobalRef<jobject>>(env, logcat);
 
-  g_callbacks.push_back([env, logcatGlobal] (const std::string& message) mutable {
-      auto jcLogcatFragment = env->GetObjectClass(logcatGlobal->get());
-      auto jcLogcatFragmentAddMessageFromNative = env->GetMethodID(jcLogcatFragment,
-                                                                   "addMessageFromNative", "(Ljava/lang/String;)V");
+  auto jcLogcatFragment = env->GetObjectClass(logcatGlobal->get());
+  auto jcLogcatFragmentAddMessageFromNative = env->GetMethodID(jcLogcatFragment,
+                                                               "addMessageFromNative", "(Ljava/lang/String;)V");
+
+  g_callbacks.push_back([logcatGlobal, jcLogcatFragmentAddMessageFromNative] (JNIEnv* env, const std::string& message) mutable {
 
       env->CallVoidMethod(logcatGlobal->get(), jcLogcatFragmentAddMessageFromNative,
                           env->NewStringUTF(message.c_str()));
     });
-
-  for (auto& callback : g_callbacks) {
-    callback("Add new Native->Java callbacks");
-  }
 }
 
 JNIEXPORT void JNICALL
@@ -217,26 +244,29 @@ struct android_sink_backend : public boost::log::sinks::basic_sink_backend<boost
   void
   consume(const boost::log::record_view& rec)
   {
-    NDN_LOG_DEBUG("Consuming some record from boost log");
+    ScopedEnv env;
+
     auto msg = rec[boost::log::expressions::smessage].get();
     for (auto& callback : g_callbacks) {
-      callback(msg);
+      callback(env.get(), msg);
     }
   }
 };
 
 void
-init()
+init(JNIEnv* env)
 {
   static bool isInit = false;
   if (isInit) {
     return;
   }
   isInit = true;
-  boost::log::add_common_attributes();
+
+  env->GetJavaVM(&g_vm);
+
   typedef boost::log::sinks::synchronous_sink<android_sink_backend> android_sink;
   auto sink = boost::make_shared<android_sink>();
 
-  NDN_LOG_DEBUG("Adding sink to custom logger");
   boost::log::core::get()->add_sink(sink);
+
 }
