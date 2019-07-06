@@ -105,6 +105,7 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
     NDN_LOG_TRACE("Runner already created, do nothing");
     return;
   }
+  NDN_LOG_DEBUG("Locked, creating thread");
 
   icear::g_thread = std::thread([params] {
       try {
@@ -138,6 +139,7 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
         NDN_LOG_ERROR(e.what());
       }
     });
+  NDN_LOG_DEBUG("Will unlock");
 }
 
 JNIEXPORT void JNICALL
@@ -145,14 +147,13 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_stop(JNIEnv*, jclass)
 {
   {
     std::lock_guard<std::mutex> lk(icear::g_mutex);
-    if (icear::g_runner.get() == nullptr) {
-      return;
+    if (icear::g_runner.get() != nullptr) {
+      icear::g_runner->doStop();
     }
-    icear::g_runner->doStop();
   }
-  NDN_LOG_TRACE("Requested stop, waiting for thread join");
-  icear::g_thread.join();
-  NDN_LOG_TRACE("Thread joined");
+  if (icear::g_thread.joinable()) {
+    icear::g_thread.join();
+  }
 }
 
 std::list<std::function<void(JNIEnv* env, const std::string& message)>> g_callbacks;
