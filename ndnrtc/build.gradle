@@ -6,7 +6,7 @@ android {
     compileSdkVersion 28
 
     defaultConfig {
-        applicationId "net.named_data.ice_ar.test1"
+        applicationId "net.named_data.ice_ar.sec_demo1"
         minSdkVersion 23
         targetSdkVersion 28
         versionCode 1
