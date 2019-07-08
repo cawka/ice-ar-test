@@ -1,6 +1,11 @@
 package net.named_data.ice_ar;
 
+import android.content.Context;
+import android.net.wifi.SupplicantState;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -12,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 public class MainActivity extends AppCompatActivity implements NdnRtcWrapper.StartStopNotify {
+  private String TAG = MainActivity.class.getName();
   private boolean m_isStartAction = true;
   private FloatingActionButton m_button;
   private LogcatFragment m_logFragment;
@@ -62,5 +68,20 @@ public class MainActivity extends AppCompatActivity implements NdnRtcWrapper.Sta
       m_button.setImageResource(android.R.drawable.ic_media_play);
       m_button.setClickable(true);
     });
+  }
+
+  @Override
+  public String getWifi()
+  {
+    WifiManager wifiManager = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+    WifiInfo wifiInfo;
+
+    wifiInfo = wifiManager.getConnectionInfo();
+    if (wifiInfo.getSupplicantState() == SupplicantState.COMPLETED) {
+      return wifiInfo.getBSSID();
+    }
+    else {
+      return "";
+    }
   }
 }

@@ -27,16 +27,51 @@ static const uint64_t ROUTE_COST(1);
 static const time::milliseconds ROUTE_EXPIRATION = 160_s;
 static const time::milliseconds HUB_DISCOVERY_INTEREST_LIFETIME = 2_s;
 
-MobileTerminal::MobileTerminal(KeyChain& keyChain)
+MobileTerminal::MobileTerminal(KeyChain& keyChain, const std::function<bool()>& filterNetworkChange)
   : m_keyChain(keyChain)
   , m_face(nullptr, m_keyChain)
   , m_controller(m_face, m_keyChain)
   , m_scheduler(m_face.getIoService())
+  , m_filterNetworkChange(filterNetworkChange)
 {
 }
 
 void
 MobileTerminal::doStart()
+{
+  m_networkMonitor = std::make_unique<net::NetworkMonitor>(m_face.getIoService());
+
+  m_networkMonitor->onNetworkStateChanged.connect([this] () {
+      m_rerunEvent = m_scheduler.schedule(5_s, [this] {
+          NDN_LOG_DEBUG("Detected network state change");
+          if (m_filterNetworkChange()) {
+            NDN_LOG_DEBUG("Do nothing (filtered in the up-call)");
+            return;
+          }
+          else {
+            NDN_LOG_DEBUG("Re-run NDNCERT to get a new certificate");
+          }
+
+          m_face.shutdown(); // hopefully, this will stop the process so we ready to re-run...
+          runDiscoveryAndNdncert();
+        });
+    });
+
+  runDiscoveryAndNdncert();
+
+  m_face.processEvents(); // will block until doStop
+}
+
+void
+MobileTerminal::doStop()
+{
+  m_scheduler.cancelAllEvents();
+  m_networkMonitor.reset();
+  m_face.shutdown();
+}
+
+void
+MobileTerminal::runDiscoveryAndNdncert()
 {
   m_controller.start<nfd::FaceUpdateCommand>(
     nfd::ControlParameters()
@@ -56,13 +91,6 @@ MobileTerminal::doStart()
       this->fail("Cannot set FaceFlags bit");
     });
 
-  m_face.processEvents();
-}
-
-void
-MobileTerminal::doStop()
-{
-  m_face.shutdown();
 }
 
 void MobileTerminal::waitUntilFibEntryHasNextHop(size_t nRetriesLeft,

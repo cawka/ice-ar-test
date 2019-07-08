@@ -13,6 +13,9 @@ public class NdnRtcWrapper {
 
     void
     onStopped();
+
+    String
+    getWifi();
   }
 
   /**

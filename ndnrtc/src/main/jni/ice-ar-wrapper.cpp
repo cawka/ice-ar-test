@@ -70,6 +70,7 @@ static std::thread g_thread;
 static std::mutex g_mutex;
 static std::unique_ptr<ndn::ndncert::MobileTerminal> g_runner;
 static std::unique_ptr<ndn::KeyChain> g_keyChain;
+static std::string g_ssid = "";
 
 } // namespace icear
 
@@ -175,11 +176,26 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
     NDN_THROW(std::logic_error("Notification methods not found, abort"));
   }
 
+  auto jcNotifyGetWifi = env->GetMethodID(jcNotify, "getWifi", "()Ljava/lang/String;");
+  if (jcNotifyGetWifi == nullptr) {
+    NDN_THROW(std::logic_error("jcNotifyGetWifi method not found, abort"));
+  }
+
   if (icear::g_thread.joinable()) {
     icear::g_thread.join();
   }
-  icear::g_thread = std::thread([params, notifyGlobal, jcNotifyOnStart, jcNotifyOnStop] {
+  icear::g_thread = std::thread([params, notifyGlobal, jcNotifyOnStart, jcNotifyOnStop, jcNotifyGetWifi] {
       try {
+        ScopedEnv env;
+        auto getSsidFromAndroid = [&env, jcNotifyGetWifi, notifyGlobal] {
+          // jcNotifyGetWifi
+          jstring jssid = (jstring)env.get()->CallObjectMethod(notifyGlobal->get(), jcNotifyGetWifi);
+          const char* ssid = env.get()->GetStringUTFChars(jssid, nullptr);
+          std::string retval = ssid;
+          env.get()->ReleaseStringUTFChars(jssid, ssid);
+          return retval;
+        };
+
         {
           std::lock_guard<std::mutex> lk(icear::g_mutex);
           if (icear::g_runner.get() != nullptr) {
@@ -188,14 +204,26 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
             return;
           }
 
+          icear::g_ssid = getSsidFromAndroid();
+          NDN_LOG_DEBUG("Connected SSID wifi: " << icear::g_ssid);
+
           if (icear::g_keyChain == nullptr) {
             icear::g_keyChain = std::make_unique<ndn::KeyChain>();
           }
 
-          icear::g_runner = std::make_unique<ndn::ndncert::MobileTerminal>(*icear::g_keyChain);
+          icear::g_runner = std::make_unique<ndn::ndncert::MobileTerminal>(*icear::g_keyChain, [&getSsidFromAndroid] {
+              auto ssid = getSsidFromAndroid();
+              if (ssid != icear::g_ssid) {
+                icear::g_ssid = ssid;
+                NDN_LOG_DEBUG("Re-connected to a new SSID wifi: " << icear::g_ssid);
+                return false;
+              }
+              else {
+                return true;
+              }
+            });
         }
 
-        ScopedEnv env;
         env.get()->CallVoidMethod(notifyGlobal->get(), jcNotifyOnStart);
 
         NDN_LOG_TRACE("Initiating NDNCERT");

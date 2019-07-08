@@ -7,6 +7,7 @@
 #include <ndn-cxx/mgmt/nfd/controller.hpp>
 #include <ndn-cxx/mgmt/nfd/face-status.hpp>
 #include <ndn-cxx/net/face-uri.hpp>
+#include <ndn-cxx/net/network-monitor.hpp>
 
 #include "location-client-tool.hpp"
 
@@ -16,8 +17,9 @@ namespace ndncert {
 class MobileTerminal
 {
 public:
-  MobileTerminal(KeyChain& keyChain);
+  MobileTerminal(KeyChain& keyChain, const std::function<bool()>& filterNetworkChange);
 
+  // will block until doStop
   void
   doStart();
 
@@ -25,6 +27,9 @@ public:
   doStop();
 
 private:
+  void
+  runDiscoveryAndNdncert();
+
   void
   waitUntilFibEntryHasNextHop(size_t nRetriesLeft,
                               const Name& prefix, uint64_t faceId,
@@ -78,6 +83,9 @@ private:
   nfd::Controller m_controller;
   Scheduler m_scheduler;
   std::unique_ptr<LocationClientTool> m_ndncertTool;
+  std::unique_ptr<net::NetworkMonitor> m_networkMonitor;
+  util::scheduler::ScopedEventId m_rerunEvent;
+  std::function<bool()> m_filterNetworkChange;
 
   int m_nRegs = 0;
   int m_nRegSuccess = 0;
