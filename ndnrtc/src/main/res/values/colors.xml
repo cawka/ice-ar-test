@@ -3,4 +3,44 @@
     <item name="ndn_color_fire_bush" type="color">#DB9710</item>
     <item name="android_color_gray" type="color">#C6C6C6</item>
     <item name="notification_color_orange" type="color">#CD5F31</item>
+
+    <string-array name="loglevel_names">
+        <item>FATAL</item>
+        <item>ERROR</item>
+        <item>TRACE</item>
+        <item>DEBUG</item>
+        <item>INFO</item>
+        <item>WARN</item>
+    </string-array>
+
+    <integer-array name="background_colors">
+        <item>@color/background_error</item>
+        <item>@color/background_error</item>
+        <item>@color/background_verbose</item>
+        <item>@color/background_debug</item>
+        <item>@color/background_info</item>
+        <item>@color/background_warn</item>
+    </integer-array>
+
+    <integer-array name="foreground_colors">
+        <item>@color/foreground_error</item>
+        <item>@color/foreground_error</item>
+        <item>@color/foreground_verbose</item>
+        <item>@color/foreground_debug</item>
+        <item>@color/foreground_info</item>
+        <item>@color/foreground_warn</item>
+    </integer-array>
+
+    <color name="background_error">#FFCC0000</color>
+    <color name="background_verbose">#FF666666</color>
+    <color name="background_debug">#FF0066CC</color>
+    <color name="background_info">#FF00CC00</color>
+    <color name="background_warn">#FFFFFF00</color>
+
+    <color name="foreground_error">#FFFFFFFF</color>
+    <color name="foreground_verbose">#FFCCCCCC</color>
+    <color name="foreground_debug">#FFCCCCCC</color>
+    <color name="foreground_info">#FF333333</color>
+    <color name="foreground_warn">#FF333333</color>
+
 </resources>

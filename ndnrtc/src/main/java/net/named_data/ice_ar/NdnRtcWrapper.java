@@ -20,7 +20,7 @@ public class NdnRtcWrapper {
 
   public interface Logger {
     void
-    addMessageFromNative(String message);
+    addMessageFromNative(String module, String severity, String message);
   }
 
   /**

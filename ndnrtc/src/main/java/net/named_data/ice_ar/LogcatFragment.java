@@ -3,15 +3,19 @@
 package net.named_data.ice_ar;
 
 import android.annotation.SuppressLint;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import androidx.annotation.Keep;
 import androidx.annotation.Nullable;
@@ -35,10 +39,39 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
     @SuppressLint("InflateParams")
     View v = inflater.inflate(R.layout.fragment_logcat_output, null);
 
+    String[] levels = getResources().getStringArray(R.array.loglevel_names);
+    int[] foregrounds = getResources().getIntArray(R.array.foreground_colors);
+    int[] backgrounds = getResources().getIntArray(R.array.background_colors);
+    HashMap<String, ColorsItem> colorMap = new HashMap<>();
+    for (int i = 0; i < Math.min(Math.min(levels.length, foregrounds.length), backgrounds.length); ++i) {
+      colorMap.put(levels[i], new ColorsItem(foregrounds[i], backgrounds[i]));
+    }
+
     // Get UI Elements
     m_logListView = (ListView) v.findViewById(R.id.log_output);
-    m_logListAdapter = new LogListAdapter(inflater, s_logMaxLines);
+    m_logListAdapter = new LogListAdapter(inflater, s_logMaxLines, colorMap,
+                                          new ColorsItem(R.color.foreground_debug, R.color.background_debug));
     m_logListView.setAdapter(m_logListAdapter);
+
+    m_logListView.setOnItemClickListener((AdapterView<?> parent, View view, int position, long id) -> {
+      TextView level = (TextView)view.findViewById(R.id.log_level_text);
+      TextView msg = (TextView)view.findViewById(R.id.log_line);
+      int lines = msg.getMaxLines();
+      int lineCount = msg.getLineCount();
+
+      if (lines == lineCount) {
+        lines = 1;
+      }
+      else {
+        lines = lineCount;
+      }
+
+      msg.setMaxLines(lines);
+      msg.setMinLines(lines);
+
+      level.setMaxLines(lines);
+      level.setMinLines(lines);
+    });
 
     return v;
   }
@@ -59,10 +92,10 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
 
   @Keep @Override
   public void
-  addMessageFromNative(String message)
+  addMessageFromNative(String module, String severity, String message)
   {
     getActivity().runOnUiThread(() -> {
-      appendLogText(message);
+      appendLogText(module, severity, message);
     });
   }
 
@@ -82,8 +115,8 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
    *
    * @param message String message to be posted to the text view.
    */
-  private void appendLogText(String message) {
-    m_logListAdapter.addMessage(message);
+  private void appendLogText(String module, String severity, String message) {
+    m_logListAdapter.addMessage(module, severity, message);
     m_logListView.setSelection(m_logListAdapter.getCount() - 1);
   }
 
@@ -101,10 +134,13 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
      * @param maxLines Maximum number of entries allowed in
      *                 the ListView for this adapter.
      */
-    LogListAdapter(LayoutInflater layoutInflater, int maxLines) {
+    LogListAdapter(LayoutInflater layoutInflater, int maxLines,
+                   HashMap<String, ColorsItem> colorMap, ColorsItem defaultColor) {
       m_data = new ArrayList<>();
       m_layoutInflater = layoutInflater;
       m_maxLines = maxLines;
+      m_colorMap = colorMap;
+      m_defaultColor = defaultColor;
     }
 
     /**
@@ -113,12 +149,12 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
      * @param message Message to be added to the underlying data store
      *                and displayed on thi UI.
      */
-    void addMessage(String message) {
+    void addMessage(String module, String level, String message) {
       if (m_data.size() == m_maxLines) {
         m_data.remove(0);
       }
 
-      m_data.add(message);
+      m_data.add(new Item(module, level, message));
       notifyDataSetChanged();
     }
 
@@ -158,28 +194,58 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
         convertView.setTag(holder);
 
         holder.logLineTextView = (TextView) convertView.findViewById(R.id.log_line);
+        holder.logLevel = convertView.findViewById(R.id.log_level_text);
       } else {
         holder = (LogEntryViewHolder) convertView.getTag();
       }
 
-      holder.logLineTextView.setText(m_data.get(position));
+      Item item = m_data.get(position);
+      holder.logLineTextView.setText(item.message);
+      holder.logLineTextView.setMaxLines(1);
+      holder.logLineTextView.setMinLines(1);
+      holder.logLevel.setText(item.level.substring(0, 1));
+      holder.logLevel.setMaxLines(1);
+      holder.logLevel.setMinLines(1);
+      ColorsItem color = m_colorMap.get(item.level);
+      if (color == null) {
+        color = m_defaultColor;
+      }
+      holder.logLevel.setBackgroundColor(color.background);
+      holder.logLevel.setTextColor(color.foreground);
       return convertView;
     }
 
+    class Item {
+      Item(final String module, final String level, final String message)
+      {
+        this.module = module;
+        this.level = level;
+        this.message = message;
+      }
+
+      String module;
+      String level;
+      String message;
+    }
+
     /** Underlying message data store for log messages*/
-    private final ArrayList<String> m_data;
+    private final ArrayList<Item> m_data;
 
     /** Layout inflater for inflating views */
     private final LayoutInflater m_layoutInflater;
 
     /** Maximum number of log lines to display */
     private final int m_maxLines;
+
+    private HashMap<String, ColorsItem> m_colorMap;
+    ColorsItem m_defaultColor;
   }
 
   /**
    * Log entry view holder object for holding the output.
    */
   private static class LogEntryViewHolder {
+    TextView logLevel;
     TextView logLineTextView;
   }
 
@@ -197,6 +263,14 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
   /** Customized ListAdapter for controlling log output */
   private LogListAdapter m_logListAdapter;
 
-  /** Tag argument to logcat */
-  private String m_tagArguments;
+  class ColorsItem {
+    ColorsItem(int foreground, int background)
+    {
+      this.foreground = foreground;
+      this.background = background;
+    }
+
+    int foreground;
+    int background;
+  }
 }

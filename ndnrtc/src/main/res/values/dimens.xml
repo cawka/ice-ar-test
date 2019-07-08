@@ -7,4 +7,6 @@
     <dimen name="default_padding_right">16dp</dimen>
     <dimen name="drawer_width">192dp</dimen>
     <dimen name="fab_margin">16dp</dimen>
+
+    <dimen name="log_level_width">15dp</dimen>
 </resources>

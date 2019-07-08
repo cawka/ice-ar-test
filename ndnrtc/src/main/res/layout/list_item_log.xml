@@ -1,12 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
+              android:orientation="horizontal"
               android:layout_width="match_parent"
-              android:layout_height="match_parent">
+              android:layout_height="match_parent"
+
+              android:paddingLeft="3dp"
+              android:paddingRight="3dp"
+              android:paddingBottom="1dp"
+              android:paddingTop="2dp">
+
+    <TextView android:layout_width="@dimen/log_level_width"
+              android:layout_height="wrap_content" android:textSize="12sp"
+              android:text="D"
+              android:id="@+id/log_level_text"
+              android:gravity="center_horizontal"
+              android:typeface="monospace"
+              android:layout_toRightOf="@+id/log_line" />
 
     <TextView
         android:id="@+id/log_line"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:minLines="1"
+        android:maxLines="1"
+        />
 
 </LinearLayout>

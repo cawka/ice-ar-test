@@ -259,7 +259,8 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_stop(JNIEnv*, jclass)
   }
 }
 
-std::list<std::function<void(JNIEnv* env, const std::string& message)>> g_callbacks;
+std::list<std::function<void(JNIEnv* env, const std::string& module, const std::string& severity,
+                             const std::string& message)>> g_callbacks;
 
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_attach(JNIEnv* env, jclass, jobject logcat)
@@ -270,11 +271,14 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_attach(JNIEnv* env, jclass, jobject l
 
   auto jcLogcatFragment = env->GetObjectClass(logcatGlobal->get());
   auto jcLogcatFragmentAddMessageFromNative = env->GetMethodID(jcLogcatFragment,
-                                                               "addMessageFromNative", "(Ljava/lang/String;)V");
+                                                               "addMessageFromNative", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
 
-  g_callbacks.push_back([logcatGlobal, jcLogcatFragmentAddMessageFromNative] (JNIEnv* genv, const std::string& message) mutable {
+  g_callbacks.push_back([logcatGlobal, jcLogcatFragmentAddMessageFromNative]
+                        (JNIEnv* genv, const std::string& module, const std::string& severity, const std::string& message) mutable {
 
       genv->CallVoidMethod(logcatGlobal->get(), jcLogcatFragmentAddMessageFromNative,
+                           genv->NewStringUTF(module.c_str()),
+                           genv->NewStringUTF(severity.c_str()),
                            genv->NewStringUTF(message.c_str()));
     });
 }
@@ -293,8 +297,10 @@ struct android_sink_backend : public boost::log::sinks::basic_sink_backend<boost
     ScopedEnv genv;
 
     auto msg = rec[boost::log::expressions::smessage].get();
+    auto module = rec[ndn::util::log::module].get();
+    auto level = rec[ndn::util::log::severity].get();
     for (auto& callback : g_callbacks) {
-      callback(genv.get(), msg);
+      callback(genv.get(), module, boost::lexical_cast<std::string>(level), msg);
     }
   }
 };
