@@ -3,9 +3,7 @@
 package net.named_data.ice_ar;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,15 +11,13 @@ import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 
+import androidx.annotation.Keep;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class LogcatFragment extends Fragment {
+public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
   private static final String TAG = LogcatFragment.class.getName();
 
   @Override
@@ -52,17 +48,16 @@ public class LogcatFragment extends Fragment {
   {
     super.onResume();
     NdnRtcWrapper.attach(this);
-    //    startLogging();
   }
 
   @Override
   public void onPause()
   {
     super.onPause();
-    //    stopLogging();
     NdnRtcWrapper.detach(this);
   }
 
+  @Keep @Override
   public void
   addMessageFromNative(String message)
   {

@@ -5,7 +5,6 @@ import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -13,6 +12,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.io.File;
 import java.util.HashMap;
 
+import androidx.annotation.Keep;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
@@ -50,6 +50,7 @@ public class MainActivity extends AppCompatActivity implements NdnRtcWrapper.Sta
     });
   }
 
+  @Keep
   @Override
   public void onStarted()
   {
@@ -60,6 +61,7 @@ public class MainActivity extends AppCompatActivity implements NdnRtcWrapper.Sta
     });
   }
 
+  @Keep
   @Override
   public void onStopped()
   {
@@ -70,6 +72,7 @@ public class MainActivity extends AppCompatActivity implements NdnRtcWrapper.Sta
     });
   }
 
+  @Keep
   @Override
   public String getWifi()
   {

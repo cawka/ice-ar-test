@@ -21,6 +21,10 @@
 
 -keepattributes *Annotation*
 
+-keepclassmembers,allowoptimization,includedescriptorclasses class net.named_data.ice_ar.** {
+    @androidx.annotation.Keep *;
+}
+
 # Preserve all fundamental application classes.
 
 -keep public class * extends android.app.Activity

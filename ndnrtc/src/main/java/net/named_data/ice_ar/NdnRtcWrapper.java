@@ -18,6 +18,11 @@ public class NdnRtcWrapper {
     getWifi();
   }
 
+  public interface Logger {
+    void
+    addMessageFromNative(String message);
+  }
+
   /**
    * Native API
    * <p/>
@@ -31,8 +36,8 @@ public class NdnRtcWrapper {
   stop();
 
   public native static void
-  attach(LogcatFragment logcat);
+  attach(Logger logger);
 
   public native static void
-  detach(LogcatFragment logcat);
+  detach(Logger logger);
 }
