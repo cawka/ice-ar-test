@@ -113,3 +113,13 @@
 # -keep public class mypackage.MyClass
 # -keep public interface mypackage.MyInterface
 # -keep public class * implements mypackage.MyInterface
+
+-keepclassmembers class **.LogcatFragment {
+    public void addMessageFromNative(String);
+}
+
+-keepclassmembers class **.MainActivity {
+    public void onStarted();
+    public void onStopped();
+    public String getWifi();
+}
