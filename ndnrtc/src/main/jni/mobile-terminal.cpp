@@ -43,13 +43,13 @@ MobileTerminal::doStart()
 
   m_networkMonitor->onNetworkStateChanged.connect([this] () {
       m_rerunEvent = m_scheduler.schedule(5_s, [this] {
-          NDN_LOG_DEBUG("Detected network state change");
+          // NDN_LOG_DEBUG("Detected network state change");
           if (m_filterNetworkChange()) {
-            NDN_LOG_DEBUG("Do nothing (filtered in the up-call)");
+            // NDN_LOG_DEBUG("Do nothing (filtered in the up-call)");
             return;
           }
           else {
-            NDN_LOG_DEBUG("Re-run NDNCERT to get a new certificate");
+            NDN_LOG_INFO("Detected AP change. Re-run NDNCERT");
           }
 
           m_face.shutdown(); // hopefully, this will stop the process so we ready to re-run...

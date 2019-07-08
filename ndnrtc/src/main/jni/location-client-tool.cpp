@@ -195,7 +195,7 @@ LocationClientTool::localhopValidateCb(const shared_ptr<RequestState>& state)
   // decode what needs to be decoded
   auto code2 = state->challengeData.find("code2");
   if (code2 == state->challengeData.end()) {
-    std::cerr << "ERROR: the _SELECT/LOCATION response didn't include expected `code2` field" << std::endl;
+    NDN_LOG_ERROR("ERROR: the _SELECT/LOCATION response didn't include expected `code2` field");
     return;
   }
 
@@ -213,9 +213,11 @@ void
 LocationClientTool::validateCb(const shared_ptr<RequestState>& state)
 {
   if (state->m_status == ChallengeModule::SUCCESS) {
-    std::cerr << "DONE! Certificate has already been issued \n";
+    NDN_LOG_TRACE("DONE! Certificate has already been issued");
     client.requestDownload(state,
-                           bind(&LocationClientTool::downloadCb, this, _1),
+                           [this] (const auto& state) {
+                             downloadCb(state);
+                           },
                            bind(&LocationClientTool::errorCb, this, _1));
     return;
   }
@@ -224,8 +226,18 @@ LocationClientTool::validateCb(const shared_ptr<RequestState>& state)
 void
 LocationClientTool::downloadCb(const shared_ptr<RequestState>& state)
 {
-  std::cerr << " DONE! Certificate has already been installed to local keychain\n";
-  return;
+  // as a hack: there must be 2 certs now: default self-signed, and the other one we just got. Showing the other one
+
+  Name defaultCertName = state->m_key.getDefaultCertificate().getName();
+
+  for (const auto& cert : state->m_key.getCertificates()) {
+    if (cert.getName() == defaultCertName) {
+      continue;
+    }
+    NDN_LOG_INFO("Got CERT:" << cert.getName() << "\n" << cert);
+
+    // @TODO fix ndncert to make it correct
+  }
 }
 
 } // namespace ndncert

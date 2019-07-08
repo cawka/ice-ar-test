@@ -158,7 +158,7 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
     ndn::util::Logging::setLevel("*=ALL");
   }
 
-  NDN_LOG_DEBUG("Will process with app path: " << params.find("homePath")->second.c_str());
+  NDN_LOG_TRACE("Will process with app path: " << params.find("homePath")->second.c_str());
 
   std::lock_guard<std::mutex> lk(icear::g_mutex);
   if (icear::g_runner.get() != nullptr) {
@@ -205,7 +205,7 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
           }
 
           icear::g_ssid = getSsidFromAndroid();
-          NDN_LOG_DEBUG("Connected SSID wifi: " << icear::g_ssid);
+          NDN_LOG_INFO("Connected SSID wifi: " << icear::g_ssid);
 
           if (icear::g_keyChain == nullptr) {
             icear::g_keyChain = std::make_unique<ndn::KeyChain>();
@@ -226,10 +226,8 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
 
         env.get()->CallVoidMethod(notifyGlobal->get(), jcNotifyOnStart);
 
-        NDN_LOG_TRACE("Initiating NDNCERT");
+        NDN_LOG_INFO("Initiating NDNCERT");
         icear::g_runner->doStart();
-
-        NDN_LOG_TRACE("End of NDNCERT");
 
         {
           std::lock_guard<std::mutex> lk(icear::g_mutex);
@@ -237,8 +235,6 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
         }
 
         env.get()->CallVoidMethod(notifyGlobal->get(), jcNotifyOnStop);
-
-        NDN_LOG_TRACE("Terminated NDNCERT");
       } catch (const std::exception& e) {
         NDN_LOG_ERROR(e.what());
       }

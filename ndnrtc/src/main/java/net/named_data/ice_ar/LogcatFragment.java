@@ -95,6 +95,16 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
   addMessageFromNative(String module, String severity, String message)
   {
     getActivity().runOnUiThread(() -> {
+      if (severity.equals("TRACE")) {
+        // suppress all trace stuff
+        return;
+      }
+      if (module.equals("ndn.Face") && severity.equals("DEBUG")) {
+        if (message.contains("/localhost/nfd")) {
+          // ignore all face exchanges to/from local NFD
+          return;
+        }
+      }
       appendLogText(module, severity, message);
     });
   }
