@@ -75,8 +75,68 @@ static std::unique_ptr<ndn::KeyChain> g_keyChain;
 
 void init(JNIEnv* env);
 
+JavaVM* g_vm;
+
+class ScopedEnv
+{
+public:
+  ScopedEnv()
+  {
+    int getEnvStat = g_vm->GetEnv((void**)&env, JNI_VERSION_1_6);
+    if (getEnvStat == JNI_EDETACHED) {
+      g_vm->AttachCurrentThread(&env, nullptr);
+      wasAttached = true;
+    } else if (getEnvStat == JNI_OK) {
+      //
+    } else if (getEnvStat == JNI_EVERSION) {
+      // NDN_THROW(std::runtime_error("GetEnv: version not supported"));
+    }
+  }
+
+  ~ScopedEnv()
+  {
+    if (wasAttached) {
+      g_vm->DetachCurrentThread();
+    }
+  }
+
+  JNIEnv*
+  get()
+  {
+    return env;
+  }
+
+private:
+  JNIEnv* env;
+  bool wasAttached = false;
+};
+
+template<class T>
+class GlobalRef
+{
+public:
+  GlobalRef(JNIEnv* env, T t)
+  {
+    m_globalRef = reinterpret_cast<T>(env->NewGlobalRef(t));
+  }
+
+  ~GlobalRef()
+  {
+    ScopedEnv env;
+    env.get()->DeleteGlobalRef(m_globalRef);
+  }
+
+  T&
+  get() {
+    return m_globalRef;
+  }
+
+private:
+  T m_globalRef;
+};
+
 JNIEXPORT void JNICALL
-Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jParams)
+Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jParams, jobject notify)
 {
   init(env); // logging facilities, though not sure it gonna work
 
@@ -105,9 +165,20 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
     NDN_LOG_TRACE("Runner already created, do nothing");
     return;
   }
-  NDN_LOG_DEBUG("Locked, creating thread");
 
-  icear::g_thread = std::thread([params] {
+  auto notifyGlobal = std::make_shared<GlobalRef<jobject>>(env, notify);
+
+  auto jcNotify = env->GetObjectClass(notifyGlobal->get());
+  auto jcNotifyOnStart = env->GetMethodID(jcNotify, "onStarted", "()V");
+  auto jcNotifyOnStop = env->GetMethodID(jcNotify, "onStopped", "()V");
+  if (jcNotifyOnStart == nullptr || jcNotifyOnStop == nullptr) {
+    NDN_THROW(std::logic_error("Notification methods not found, abort"));
+  }
+
+  if (icear::g_thread.joinable()) {
+    icear::g_thread.join();
+  }
+  icear::g_thread = std::thread([params, notifyGlobal, jcNotifyOnStart, jcNotifyOnStop] {
       try {
         {
           std::lock_guard<std::mutex> lk(icear::g_mutex);
@@ -124,6 +195,9 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
           icear::g_runner = std::make_unique<ndn::ndncert::MobileTerminal>(*icear::g_keyChain);
         }
 
+        ScopedEnv env;
+        env.get()->CallVoidMethod(notifyGlobal->get(), jcNotifyOnStart);
+
         NDN_LOG_TRACE("Initiating NDNCERT");
         icear::g_runner->doStart();
 
@@ -134,12 +208,13 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
           icear::g_runner.reset();
         }
 
+        env.get()->CallVoidMethod(notifyGlobal->get(), jcNotifyOnStop);
+
         NDN_LOG_TRACE("Terminated NDNCERT");
       } catch (const std::exception& e) {
         NDN_LOG_ERROR(e.what());
       }
     });
-  NDN_LOG_DEBUG("Will unlock");
 }
 
 JNIEXPORT void JNICALL
@@ -158,64 +233,6 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_stop(JNIEnv*, jclass)
 
 std::list<std::function<void(JNIEnv* env, const std::string& message)>> g_callbacks;
 
-JavaVM* g_vm;
-
-class ScopedEnv
-{
-public:
-  ScopedEnv()
-  {
-    int getEnvStat = g_vm->GetEnv((void**)&env, JNI_VERSION_1_6);
-    if (getEnvStat == JNI_EDETACHED) {
-      if (g_vm->AttachCurrentThread(&env, NULL) != 0) {
-        NDN_THROW(std::runtime_error("Failed to attach thread"));
-      }
-    } else if (getEnvStat == JNI_OK) {
-      //
-    } else if (getEnvStat == JNI_EVERSION) {
-      NDN_THROW(std::runtime_error("GetEnv: version not supported"));
-    }
-  }
-
-  ~ScopedEnv()
-  {
-    // g_vm->DetachCurrentThread();
-  }
-
-  JNIEnv*
-  get()
-  {
-    return env;
-  }
-
-private:
-  JNIEnv* env;
-};
-
-template<class T>
-class GlobalRef
-{
-public:
-  GlobalRef(JNIEnv* env, T t)
-  {
-    m_globalRef = reinterpret_cast<T>(env->NewGlobalRef(t));
-  }
-
-  ~GlobalRef()
-  {
-    ScopedEnv env;
-    env.get()->DeleteGlobalRef(m_globalRef);
-  }
-
-  T&
-  get() {
-    return m_globalRef;
-  }
-
-private:
-  T m_globalRef;
-};
-
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_attach(JNIEnv* env, jclass, jobject logcat)
 {
@@ -227,10 +244,10 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_attach(JNIEnv* env, jclass, jobject l
   auto jcLogcatFragmentAddMessageFromNative = env->GetMethodID(jcLogcatFragment,
                                                                "addMessageFromNative", "(Ljava/lang/String;)V");
 
-  g_callbacks.push_back([logcatGlobal, jcLogcatFragmentAddMessageFromNative] (JNIEnv* env, const std::string& message) mutable {
+  g_callbacks.push_back([logcatGlobal, jcLogcatFragmentAddMessageFromNative] (JNIEnv* genv, const std::string& message) mutable {
 
-      env->CallVoidMethod(logcatGlobal->get(), jcLogcatFragmentAddMessageFromNative,
-                          env->NewStringUTF(message.c_str()));
+      genv->CallVoidMethod(logcatGlobal->get(), jcLogcatFragmentAddMessageFromNative,
+                           genv->NewStringUTF(message.c_str()));
     });
 }
 
@@ -245,11 +262,11 @@ struct android_sink_backend : public boost::log::sinks::basic_sink_backend<boost
   void
   consume(const boost::log::record_view& rec)
   {
-    ScopedEnv env;
+    ScopedEnv genv;
 
     auto msg = rec[boost::log::expressions::smessage].get();
     for (auto& callback : g_callbacks) {
-      callback(env.get(), msg);
+      callback(genv.get(), msg);
     }
   }
 };

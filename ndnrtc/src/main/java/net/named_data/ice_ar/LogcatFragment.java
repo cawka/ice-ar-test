@@ -76,7 +76,8 @@ public class LogcatFragment extends Fragment {
   /**
    * Clear log adapter and update UI.
    */
-  private void clearLogOutput() {
+  public void clearLog()
+  {
     m_logListAdapter.clearMessages();
   }
 
@@ -90,40 +91,6 @@ public class LogcatFragment extends Fragment {
     m_logListAdapter.addMessage(message);
     m_logListView.setSelection(m_logListAdapter.getCount() - 1);
   }
-
-//  /**
-//   * Convenience method to capture the output from logcat.
-//   */
-//  private void captureLog() {
-//    try {
-//      // Build command for execution
-//      String cmd = String.format("%s -v time %s *:S",
-//          "logcat",
-//          m_tagArguments);
-//
-//      m_logProcess = Runtime.getRuntime().exec(cmd);
-//      BufferedReader in = new BufferedReader(
-//          new InputStreamReader(m_logProcess.getInputStream()));
-//
-//      String line;
-//      while ((line = in.readLine()) != null) {
-//        final String message = line;
-//        getActivity().runOnUiThread(new Runnable() {
-//          @Override
-//          public void run() {
-//            appendLogText(message);
-//          }
-//        });
-//      }
-//
-//      // Wait for process to join this thread
-//      m_logProcess.waitFor();
-//    } catch (IOException | InterruptedException e) {
-//      Log.e(TAG, "captureLog(): " + e);
-//    }
-//  }
-
-  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Custom LogListAdapter to limit the number of log lines that

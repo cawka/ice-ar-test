@@ -7,6 +7,14 @@ public class NdnRtcWrapper {
     System.loadLibrary("ice-ar-wrapper");
   }
 
+  public interface StartStopNotify {
+    void
+    onStarted();
+
+    void
+    onStopped();
+  }
+
   /**
    * Native API
    * <p/>
@@ -14,7 +22,7 @@ public class NdnRtcWrapper {
    *               for the service (ContextWrapper.getFilesDir().getAbsolutePath())
    */
   public native static void
-  start(Map<String, String> params);
+  start(Map<String, String> params, StartStopNotify notify);
 
   public native static void
   stop();

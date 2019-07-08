@@ -16,7 +16,7 @@ extern "C" {
  * Signature: (Ljava/lang/Map;)V
  */
 JNIEXPORT void JNICALL
-Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv*, jclass, jobject);
+Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv*, jclass, jobject, jobject);
 
 /*
  * Class:     net_named_data_ice_1ar_NdnRtcWrapper

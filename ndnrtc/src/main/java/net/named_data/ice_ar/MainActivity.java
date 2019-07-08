@@ -11,8 +11,10 @@ import java.util.HashMap;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-public class MainActivity extends AppCompatActivity {
-  private boolean isStartAction = true;
+public class MainActivity extends AppCompatActivity implements NdnRtcWrapper.StartStopNotify {
+  private boolean m_isStartAction = true;
+  private FloatingActionButton m_button;
+  private LogcatFragment m_logFragment;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -21,21 +23,44 @@ public class MainActivity extends AppCompatActivity {
     Toolbar toolbar = findViewById(R.id.toolbar);
     setSupportActionBar(toolbar);
 
-    FloatingActionButton btn = findViewById(R.id.fab);
-    btn.setOnClickListener((View v) -> {
-      if (isStartAction) {
+    m_logFragment = (LogcatFragment)getSupportFragmentManager().findFragmentById(R.id.fragment);
+
+    m_button = findViewById(R.id.fab);
+    m_button.setOnClickListener((View v) -> {
+      if (m_isStartAction) {
+        m_logFragment.clearLog();
         HashMap<String, String> params = new HashMap<>();
         File dir = getFilesDir();
         if (dir != null) {
           params.put("homePath", getFilesDir().getAbsolutePath());
           params.put("log", "ndncert.*=ALL:ndn.Face=ALL");
         }
-        NdnRtcWrapper.start(params);
+        NdnRtcWrapper.start(params, this);
       }
       else {
         NdnRtcWrapper.stop();
       }
-      isStartAction = !isStartAction;
+      m_button.setClickable(false);
+    });
+  }
+
+  @Override
+  public void onStarted()
+  {
+    runOnUiThread(() -> {
+      m_isStartAction = false;
+      m_button.setImageResource(android.R.drawable.ic_media_pause);
+      m_button.setClickable(true);
+    });
+  }
+
+  @Override
+  public void onStopped()
+  {
+    runOnUiThread(() -> {
+      m_isStartAction = true;
+      m_button.setImageResource(android.R.drawable.ic_media_play);
+      m_button.setClickable(true);
     });
   }
 }
