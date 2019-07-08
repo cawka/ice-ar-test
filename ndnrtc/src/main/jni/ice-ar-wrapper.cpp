@@ -181,9 +181,6 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
     NDN_THROW(std::logic_error("jcNotifyGetWifi method not found, abort"));
   }
 
-  if (icear::g_thread.joinable()) {
-    icear::g_thread.join();
-  }
   icear::g_thread = std::thread([params, notifyGlobal, jcNotifyOnStart, jcNotifyOnStop, jcNotifyGetWifi] {
       try {
         ScopedEnv env;
@@ -226,7 +223,7 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
 
         env.get()->CallVoidMethod(notifyGlobal->get(), jcNotifyOnStart);
 
-        NDN_LOG_INFO("Initiating NDNCERT");
+        NDN_LOG_INFO("NDNCERT + AP monitoring started");
         icear::g_runner->doStart();
 
         {
@@ -234,11 +231,13 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
           icear::g_runner.reset();
         }
 
+        NDN_LOG_INFO("NDNCERT + AP monitoring terminated");
         env.get()->CallVoidMethod(notifyGlobal->get(), jcNotifyOnStop);
       } catch (const std::exception& e) {
         NDN_LOG_ERROR(e.what());
       }
     });
+  icear::g_thread.detach();
 }
 
 JNIEXPORT void JNICALL
@@ -249,9 +248,6 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_stop(JNIEnv*, jclass)
     if (icear::g_runner.get() != nullptr) {
       icear::g_runner->doStop();
     }
-  }
-  if (icear::g_thread.joinable()) {
-    icear::g_thread.join();
   }
 }
 

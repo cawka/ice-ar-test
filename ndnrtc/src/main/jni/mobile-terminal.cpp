@@ -251,20 +251,24 @@ MobileTerminal::requestHubData(size_t retriesLeft)
       registerPrefixAndRunNdncert(caName, faceId);
     },
     [this, retriesLeft] (const Interest&, const lp::Nack& nack) {
-      NDN_LOG_DEBUG("Got NACK: " << nack.getReason());
       if (retriesLeft > 0) {
-        NDN_LOG_DEBUG("   Retrying in 1 second...");
+        NDN_LOG_DEBUG("   Got NACK (" << nack.getReason() << ". Retrying after 1 sec delay...");
 
         m_scheduler.schedule(1_s, [=] {
             requestHubData(retriesLeft - 1);
           });
       }
+      else {
+        this->fail("Cannot discover local CA (NACKs)");
+      }
     },
     [this, retriesLeft] (const Interest&) {
-      NDN_LOG_DEBUG("Request timed out");
       if (retriesLeft > 0) {
-        NDN_LOG_DEBUG("   Retrying...");
+        NDN_LOG_DEBUG("   Got timeout. Retrying...");
         requestHubData(retriesLeft - 1);
+      }
+      else {
+        this->fail("Cannot discover local CA (timed out)");
       }
     });
 }

@@ -76,7 +76,7 @@ LocationClientTool::start(const std::string& userIdentity)
 void
 LocationClientTool::errorCb(const std::string& errorInfo)
 {
-  std::cerr << "Error: " << errorInfo << std::endl;
+  NDN_LOG_ERROR("ERROR: " << errorInfo);
 }
 
 void
