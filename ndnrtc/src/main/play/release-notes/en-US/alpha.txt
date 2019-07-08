@@ -1,1 +1,1 @@
-Initial rought version of the demo, now with real fix for the initial crash
+Improved GUI and reduced log item
