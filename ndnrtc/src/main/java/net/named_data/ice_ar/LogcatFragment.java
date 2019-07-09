@@ -56,21 +56,22 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
     m_logListView.setOnItemClickListener((AdapterView<?> parent, View view, int position, long id) -> {
       TextView level = (TextView)view.findViewById(R.id.log_level_text);
       TextView msg = (TextView)view.findViewById(R.id.log_line);
-      int lines = msg.getMaxLines();
-      int lineCount = msg.getLineCount();
 
-      if (lines == lineCount) {
-        lines = 1;
+      LogListAdapter.Item item = (LogListAdapter.Item) m_logListAdapter.getItem(position);
+
+      int lineCount = msg.getLineCount();
+      if (item.lines == lineCount) {
+        item.lines = 1;
       }
       else {
-        lines = lineCount;
+        item.lines = lineCount;
       }
 
-      msg.setMaxLines(lines);
-      msg.setMinLines(lines);
+      msg.setMaxLines(item.lines);
+      msg.setMinLines(item.lines);
 
-      level.setMaxLines(lines);
-      level.setMinLines(lines);
+      level.setMaxLines(item.lines);
+      level.setMinLines(item.lines);
     });
 
     return v;
@@ -211,11 +212,11 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
 
       Item item = m_data.get(position);
       holder.logLineTextView.setText(item.message);
-      holder.logLineTextView.setMaxLines(1);
-      holder.logLineTextView.setMinLines(1);
+      holder.logLineTextView.setMaxLines(item.lines);
+      holder.logLineTextView.setMinLines(item.lines);
       holder.logLevel.setText(item.level.substring(0, 1));
-      holder.logLevel.setMaxLines(1);
-      holder.logLevel.setMinLines(1);
+      holder.logLevel.setMaxLines(item.lines);
+      holder.logLevel.setMinLines(item.lines);
       ColorsItem color = m_colorMap.get(item.level);
       if (color == null) {
         color = m_defaultColor;
@@ -231,11 +232,13 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
         this.module = module;
         this.level = level;
         this.message = message;
+        this.lines = 1;
       }
 
       String module;
       String level;
       String message;
+      int lines;
     }
 
     /** Underlying message data store for log messages*/
