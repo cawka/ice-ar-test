@@ -42,7 +42,7 @@ MobileTerminal::doStart()
   m_networkMonitor = std::make_unique<net::NetworkMonitor>(m_face.getIoService());
 
   m_networkMonitor->onNetworkStateChanged.connect([this] () {
-      m_rerunEvent = m_scheduler.schedule(1_s, [this] {
+      m_rerunEvent = m_scheduler.schedule(5_s, [this] {
           // NDN_LOG_DEBUG("Detected network state change");
           if (m_filterNetworkChange()) {
             // NDN_LOG_DEBUG("Do nothing (filtered in the up-call)");

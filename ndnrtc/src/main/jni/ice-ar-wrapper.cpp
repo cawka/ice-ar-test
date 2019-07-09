@@ -202,7 +202,12 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
           }
 
           icear::g_ssid = getSsidFromAndroid();
-          NDN_LOG_INFO("Connected SSID wifi: " << icear::g_ssid);
+          if (icear::g_ssid == "02:00:00:00:00:00") {
+            NDN_LOG_ERROR("Unknown SSID (location permission denied)");
+          }
+          else {
+            NDN_LOG_INFO("Connected SSID WiFi: " << icear::g_ssid);
+          }
 
           if (icear::g_keyChain == nullptr) {
             icear::g_keyChain = std::make_unique<ndn::KeyChain>();
@@ -210,9 +215,14 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jP
 
           icear::g_runner = std::make_unique<ndn::ndncert::MobileTerminal>(*icear::g_keyChain, [&getSsidFromAndroid] {
               auto ssid = getSsidFromAndroid();
+              if (ssid == "02:00:00:00:00:00") {
+                NDN_LOG_ERROR("Unknown SSID (location permission denied)");
+                NDN_LOG_DEBUG("Assume re-connected to a new WiFi");
+                return false;
+              }
               if (ssid != icear::g_ssid) {
                 icear::g_ssid = ssid;
-                NDN_LOG_DEBUG("Re-connected to a new SSID wifi: " << icear::g_ssid);
+                NDN_LOG_DEBUG("Re-connected to a new SSID WiFi: " << icear::g_ssid);
                 return false;
               }
               else {
