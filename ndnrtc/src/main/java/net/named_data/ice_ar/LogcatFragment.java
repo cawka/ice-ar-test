@@ -54,7 +54,6 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
     m_logListView.setAdapter(m_logListAdapter);
 
     m_logListView.setOnItemClickListener((AdapterView<?> parent, View view, int position, long id) -> {
-      TextView level = (TextView)view.findViewById(R.id.log_level_text);
       TextView msg = (TextView)view.findViewById(R.id.log_line);
 
       LogListAdapter.Item item = (LogListAdapter.Item) m_logListAdapter.getItem(position);
@@ -69,9 +68,6 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
 
       msg.setMaxLines(item.lines);
       msg.setMinLines(item.lines);
-
-      level.setMaxLines(item.lines);
-      level.setMinLines(item.lines);
     });
 
     return v;
@@ -215,8 +211,6 @@ public class LogcatFragment extends Fragment implements NdnRtcWrapper.Logger {
       holder.logLineTextView.setMaxLines(item.lines);
       holder.logLineTextView.setMinLines(item.lines);
       holder.logLevel.setText(item.level.substring(0, 1));
-      holder.logLevel.setMaxLines(item.lines);
-      holder.logLevel.setMinLines(item.lines);
       ColorsItem color = m_colorMap.get(item.level);
       if (color == null) {
         color = m_defaultColor;

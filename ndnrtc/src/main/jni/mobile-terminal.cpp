@@ -218,7 +218,7 @@ MobileTerminal::requestHubData(size_t retriesLeft)
   interest.setMustBeFresh(true);
   interest.setCanBePrefix(true);
 
-  NDN_LOG_INFO("Discover localhop CA via " << interest);
+  NDN_LOG_WARN("Discover localhop CA via " << interest);
 
   m_face.expressInterest(interest,
     [this] (const Interest&, const Data& data) {
@@ -226,8 +226,6 @@ MobileTerminal::requestHubData(size_t retriesLeft)
       const Block& content = data.getContent();
       content.parse();
       ndn::security::v2::Certificate cert(data.getContent().blockFromValue());
-
-      NDN_LOG_INFO("Discovered CA:\n" << cert);
 
       // if (ndn::security::verifySignature(data, cert)){
       //   std::cout << "Device certificate verified by trust anchor!!!\n";
@@ -246,6 +244,8 @@ MobileTerminal::requestHubData(size_t retriesLeft)
       Name caName = cert.getName().getPrefix(-4);
 
       m_ndncertTool = std::make_unique<ndncert::LocationClientTool>(m_face, m_keyChain, caName, cert);
+
+      NDN_LOG_INFO("Discovered CA " << caName << "\nCA's certificate: " << cert);
 
       // Get certificate to be used for signing data
       registerPrefixAndRunNdncert(caName, faceId);
@@ -289,7 +289,7 @@ MobileTerminal::fail(const std::string& msg)
 void
 MobileTerminal::registerPrefixAndRunNdncert(const Name& caPrefix, uint64_t faceId)
 {
-  NDN_LOG_INFO("Requesting certificate from CA " << caPrefix);
+  NDN_LOG_WARN("Requesting certificate from CA " << caPrefix);
 
   // // register CA prefix
   registerPrefixAndEnsureFibEntry(caPrefix, faceId, [this, faceId] {

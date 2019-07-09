@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:orientation="horizontal"
               android:layout_width="match_parent"
-              android:layout_height="match_parent"
+              android:layout_height="wrap_content"
 
               android:paddingLeft="3dp"
               android:paddingRight="3dp"
@@ -10,7 +10,7 @@
               android:paddingTop="2dp">
 
     <TextView android:layout_width="@dimen/log_level_width"
-              android:layout_height="wrap_content" android:textSize="12sp"
+              android:layout_height="match_parent" android:textSize="12sp"
               android:text="D"
               android:id="@+id/log_level_text"
               android:gravity="center_horizontal"
@@ -21,8 +21,8 @@
         android:id="@+id/log_line"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minLines="1"
-        android:maxLines="1"
+        android:minLines="10"
+        android:maxLines="10"
         />
 
 </LinearLayout>
