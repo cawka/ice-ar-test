@@ -1,1 +1,4 @@
-Improved GUI and reduced log item
+- Re-run NDNCERT after failures (after 60 second delay)
+- Preserve extended view lines when log updated
+- Add error when Location permission not enabled on the app
+- Visual fixes
