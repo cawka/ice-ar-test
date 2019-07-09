@@ -77,6 +77,7 @@ void
 LocationClientTool::errorCb(const std::string& errorInfo)
 {
   NDN_LOG_ERROR("ERROR: " << errorInfo);
+  onFailure(errorInfo);
 }
 
 void
@@ -236,6 +237,8 @@ LocationClientTool::downloadCb(const shared_ptr<RequestState>& state)
     }
     NDN_LOG_INFO("Got CERT:" << cert.getName() << "\n" << cert);
 
+    onSuccess(cert);
+    break;
     // @TODO fix ndncert to make it correct
   }
 }

@@ -42,7 +42,7 @@ MobileTerminal::doStart()
   m_networkMonitor = std::make_unique<net::NetworkMonitor>(m_face.getIoService());
 
   m_networkMonitor->onNetworkStateChanged.connect([this] () {
-      m_rerunEvent = m_scheduler.schedule(5_s, [this] {
+      m_rerunEvent = m_scheduler.schedule(1_s, [this] {
           // NDN_LOG_DEBUG("Detected network state change");
           if (m_filterNetworkChange()) {
             // NDN_LOG_DEBUG("Do nothing (filtered in the up-call)");
@@ -276,7 +276,14 @@ MobileTerminal::requestHubData(size_t retriesLeft)
 void
 MobileTerminal::fail(const std::string& msg)
 {
-  NDN_LOG_ERROR("Discovery failed: " << msg);
+  NDN_LOG_ERROR("ERROR: " << msg);
+
+  m_scheduler.schedule(60_s, [this] {
+      NDN_LOG_INFO("Delayed re-run of NDNCERT (complete)");
+
+      m_face.shutdown(); // hopefully, this will stop the process so we ready to re-run...
+      runDiscoveryAndNdncert();
+    });
 }
 
 void
@@ -304,6 +311,21 @@ MobileTerminal::runNdncert()
                     });
 
     BOOST_ASSERT(m_ndncertTool != nullptr);
+
+    m_onSuccessConnection = m_ndncertTool->onSuccess.connect([this] (const Certificate& cert) {
+        m_gotCert = true;
+      });
+    m_onFailConnection = m_ndncertTool->onFailure.connect([this, randomUserIdentity] (const auto&...) {
+        // a bit redundant
+        m_gotCert = false;
+
+        // try again in 60 seconds
+        m_scheduler.schedule(60_s, [=] {
+            NDN_LOG_INFO("Delayed re-run on NDNCERT (cert only)");
+            m_ndncertTool->start(randomUserIdentity);
+          });
+      });
+
     m_ndncertTool->start(randomUserIdentity);
   }
   catch (const std::exception& error) {

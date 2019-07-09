@@ -78,6 +78,9 @@ public:
   std::string errorInfo = "";
 
 private:
+  util::signal::ScopedConnection m_onFailConnection;
+  util::signal::ScopedConnection m_onSuccessConnection;
+
   KeyChain& m_keyChain;
   Face m_face;
   nfd::Controller m_controller;
@@ -90,6 +93,8 @@ private:
   int m_nRegs = 0;
   int m_nRegSuccess = 0;
   int m_nRegFailure = 0;
+
+  bool m_gotCert = false;
 };
 
 } // namespace ndncert

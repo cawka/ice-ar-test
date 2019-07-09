@@ -3,6 +3,8 @@
 #include <ndncert/client-module.hpp>
 #include <ndncert/challenge-module.hpp>
 
+#include <ndn-cxx/util/signal.hpp>
+
 namespace ndn {
 namespace ndncert {
 
@@ -45,6 +47,10 @@ private:
                                  const shared_ptr<RequestState>& state,
                                  const ClientModule::RequestCallback& requestCallback,
                                  const ClientModule::ErrorCallback& errorCallback);
+
+public:
+  util::Signal<LocationClientTool, const Certificate&> onSuccess;
+  util::Signal<LocationClientTool, const std::string&> onFailure;
 
 private:
   const std::string LOCATION_CHALLENGE = "LOCATION";
