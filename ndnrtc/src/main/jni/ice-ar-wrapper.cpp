@@ -136,6 +136,32 @@ private:
   T m_globalRef;
 };
 
+template<class T>
+class LocalRef
+{
+public:
+  LocalRef(JNIEnv* env, T t)
+    : m_env(env)
+    , m_localRef(t)
+  {
+  }
+
+  ~LocalRef()
+  {
+    // must be called on the same thread !!!
+    m_env->DeleteLocalRef(m_localRef);
+  }
+
+  T&
+  get() {
+    return m_localRef;
+  }
+
+private:
+  JNIEnv* m_env;
+  T m_localRef;
+};
+
 JNIEXPORT void JNICALL
 Java_net_named_1data_ice_1ar_NdnRtcWrapper_start(JNIEnv* env, jclass, jobject jParams, jobject notify)
 {
@@ -279,9 +305,9 @@ Java_net_named_1data_ice_1ar_NdnRtcWrapper_attach(JNIEnv* env, jclass, jobject l
                         (JNIEnv* genv, const std::string& module, const std::string& severity, const std::string& message) mutable {
 
       genv->CallVoidMethod(logcatGlobal->get(), jcLogcatFragmentAddMessageFromNative,
-                           genv->NewStringUTF(module.c_str()),
-                           genv->NewStringUTF(severity.c_str()),
-                           genv->NewStringUTF(message.c_str()));
+                           LocalRef<jstring>(genv, genv->NewStringUTF(module.c_str())).get(),
+                           LocalRef<jstring>(genv, genv->NewStringUTF(severity.c_str())).get(),
+                           LocalRef<jstring>(genv, genv->NewStringUTF(message.c_str())).get());
     });
 }
 

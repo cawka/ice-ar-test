@@ -2,3 +2,4 @@
 - Preserve extended view lines when log updated
 - Add error when Location permission not enabled on the app
 - Visual fixes
+- Fix intermittent crashes related to JNI memory allocation
