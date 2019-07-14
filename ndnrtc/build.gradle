@@ -9,8 +9,8 @@ android {
         applicationId "net.named_data.ice_ar.sec_demo1"
         minSdkVersion 23
         targetSdkVersion 28
-        versionCode 8
-        versionName "0.0.8"
+        versionCode 9
+        versionName "0.0.9"
         multiDexEnabled true
     }
     compileOptions {

@@ -3,3 +3,4 @@
 - Add error when Location permission not enabled on the app
 - Visual fixes
 - Fix intermittent crashes related to JNI memory allocation
+- Fix undesirable parallel ndncert processes in some cases

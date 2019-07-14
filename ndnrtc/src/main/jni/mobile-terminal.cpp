@@ -52,6 +52,8 @@ MobileTerminal::doStart()
             NDN_LOG_INFO("Detected AP change. Re-run NDNCERT");
           }
 
+          m_pi.cancel();
+          m_wait.cancel();
           m_face.shutdown(); // hopefully, this will stop the process so we ready to re-run...
           runDiscoveryAndNdncert();
         });
@@ -93,9 +95,10 @@ MobileTerminal::runDiscoveryAndNdncert()
 
 }
 
-void MobileTerminal::waitUntilFibEntryHasNextHop(size_t nRetriesLeft,
-                                                 const Name& prefix, uint64_t faceId,
-                                                 const std::function<void()>& continueCallback)
+void
+MobileTerminal::waitUntilFibEntryHasNextHop(size_t nRetriesLeft,
+                                            const Name& prefix, uint64_t faceId,
+                                            const std::function<void()>& continueCallback)
 {
   NDN_LOG_TRACE("Check if FIB entry " << prefix << " exists with nexthop " << faceId << ", retries left: " << nRetriesLeft);
   m_controller.fetch<nfd::FibDataset>(
@@ -114,7 +117,7 @@ void MobileTerminal::waitUntilFibEntryHasNextHop(size_t nRetriesLeft,
       }
       if (!hasDesiredNextHop) {
         if (nRetriesLeft > 0) {
-          m_scheduler.schedule(1_s, [=] {
+          m_wait = m_scheduler.schedule(1_s, [=] {
               waitUntilFibEntryHasNextHop(nRetriesLeft - 1, prefix, faceId, continueCallback);
             });
         }
@@ -145,7 +148,7 @@ MobileTerminal::registerPrefixAndEnsureFibEntry(const Name& prefix, uint64_t fac
   m_controller.start<nfd::RibRegisterCommand>(
     parameters,
     [=] (const ControlParameters&) {
-      m_scheduler.schedule(500_ms, [=] {
+      m_wait = m_scheduler.schedule(500_ms, [=] {
           waitUntilFibEntryHasNextHop(5, prefix, faceId, continueCallback);
         }); // wait up 5 seconds theen declare failure
     },
@@ -220,7 +223,7 @@ MobileTerminal::requestHubData(size_t retriesLeft)
 
   NDN_LOG_WARN("Discover localhop CA via " << interest);
 
-  m_face.expressInterest(interest,
+  m_pi = m_face.expressInterest(interest,
     [this] (const Interest&, const Data& data) {
 
       const Block& content = data.getContent();
@@ -254,7 +257,7 @@ MobileTerminal::requestHubData(size_t retriesLeft)
       if (retriesLeft > 0) {
         NDN_LOG_DEBUG("   Got NACK (" << nack.getReason() << ". Retrying after 1 sec delay...");
 
-        m_scheduler.schedule(1_s, [=] {
+        m_wait = m_scheduler.schedule(1_s, [=] {
             requestHubData(retriesLeft - 1);
           });
       }
@@ -278,7 +281,7 @@ MobileTerminal::fail(const std::string& msg)
 {
   NDN_LOG_ERROR("ERROR: " << msg);
 
-  m_scheduler.schedule(60_s, [this] {
+  m_wait = m_scheduler.schedule(60_s, [this] {
       NDN_LOG_INFO("Delayed re-run of NDNCERT (complete)");
 
       m_face.shutdown(); // hopefully, this will stop the process so we ready to re-run...
@@ -320,7 +323,7 @@ MobileTerminal::runNdncert()
         m_gotCert = false;
 
         // try again in 60 seconds
-        m_scheduler.schedule(60_s, [=] {
+        m_wait = m_scheduler.schedule(60_s, [=] {
             NDN_LOG_INFO("Delayed re-run on NDNCERT (cert only)");
             m_ndncertTool->start(randomUserIdentity);
           });

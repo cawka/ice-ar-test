@@ -89,6 +89,8 @@ private:
   std::unique_ptr<net::NetworkMonitor> m_networkMonitor;
   util::scheduler::ScopedEventId m_rerunEvent;
   std::function<bool()> m_filterNetworkChange;
+  ScopedPendingInterestHandle m_pi;
+  util::scheduler::ScopedEventId m_wait;
 
   int m_nRegs = 0;
   int m_nRegSuccess = 0;
