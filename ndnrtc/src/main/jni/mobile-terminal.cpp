@@ -117,7 +117,7 @@ MobileTerminal::waitUntilFibEntryHasNextHop(size_t nRetriesLeft,
       }
       if (!hasDesiredNextHop) {
         if (nRetriesLeft > 0) {
-          m_wait = m_scheduler.schedule(1_s, [=] {
+          m_wait = m_scheduler.schedule(100_ms, [=] {
               waitUntilFibEntryHasNextHop(nRetriesLeft - 1, prefix, faceId, continueCallback);
             });
         }
@@ -148,8 +148,8 @@ MobileTerminal::registerPrefixAndEnsureFibEntry(const Name& prefix, uint64_t fac
   m_controller.start<nfd::RibRegisterCommand>(
     parameters,
     [=] (const ControlParameters&) {
-      m_wait = m_scheduler.schedule(500_ms, [=] {
-          waitUntilFibEntryHasNextHop(5, prefix, faceId, continueCallback);
+      m_wait = m_scheduler.schedule(100_ms, [=] {
+          waitUntilFibEntryHasNextHop(50, prefix, faceId, continueCallback);
         }); // wait up 5 seconds theen declare failure
     },
     [=] (const ControlResponse& resp) {
@@ -168,31 +168,17 @@ MobileTerminal::registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& d
     return;
   }
 
-  m_nRegs = dataset.size();
-  m_nRegSuccess = 0;
-  m_nRegFailure = 0;
+  std::function<void()> callbackStack = [this] {
+    this->setStrategy();
+  };
 
   for (const auto& faceStatus : dataset) {
-    registerPrefixAndEnsureFibEntry(HUB_DISCOVERY_PREFIX, faceStatus.getFaceId(), [this] {
-        ++m_nRegSuccess;
-        afterReg();
-      });
+    auto stackHead = [this, callbackStack, faceStatus] {
+      this->registerPrefixAndEnsureFibEntry(HUB_DISCOVERY_PREFIX, faceStatus.getFaceId(), callbackStack);
+    };
+    callbackStack = stackHead;
   }
-}
-
-void
-MobileTerminal::afterReg()
-{
-  if (m_nRegSuccess + m_nRegFailure < m_nRegs) {
-    return; // continue waiting
-  }
-  if (m_nRegSuccess > 0) {
-    NDN_LOG_TRACE("Registered to " << m_nRegSuccess << " faces");
-    setStrategy();
-  }
-  else {
-    this->fail("Cannot register hub discovery prefix for any face");
-  }
+  callbackStack();
 }
 
 void

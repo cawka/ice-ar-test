@@ -4,3 +4,4 @@
 - Visual fixes
 - Fix intermittent crashes related to JNI memory allocation
 - Fix undesirable parallel ndncert processes in some cases
+- Fix regression that prevented ndncert process to successfully start

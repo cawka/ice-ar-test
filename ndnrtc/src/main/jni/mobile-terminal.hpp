@@ -43,9 +43,6 @@ private:
   registerHubDiscoveryPrefix(const std::vector<nfd::FaceStatus>& dataset);
 
   void
-  afterReg();
-
-  void
   setStrategy();
 
   void
@@ -91,10 +88,6 @@ private:
   std::function<bool()> m_filterNetworkChange;
   ScopedPendingInterestHandle m_pi;
   util::scheduler::ScopedEventId m_wait;
-
-  int m_nRegs = 0;
-  int m_nRegSuccess = 0;
-  int m_nRegFailure = 0;
 
   bool m_gotCert = false;
 };
